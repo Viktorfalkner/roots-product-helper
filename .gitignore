@@ -1,0 +1,6 @@
+node_modules/
+.env
+context/cache.json
+frontend/dist/
+.DS_Store
+.claude/
