@@ -13,13 +13,24 @@ function getDraftType(content) {
   return null;
 }
 
+function parseAttrs(attrStr) {
+  const attrs = {};
+  if (!attrStr || !attrStr.trim()) return attrs;
+  for (const pair of attrStr.trim().split(/\s+/)) {
+    const colonIdx = pair.indexOf(':');
+    if (colonIdx > 0) attrs[pair.slice(0, colonIdx)] = pair.slice(colonIdx + 1);
+  }
+  return attrs;
+}
+
 /**
  * Split a message into text segments and draft blocks.
  * A draft block starts with a <!-- draft:* --> marker and extends to the next
  * such marker or the end of the message.
+ * Markers may include key:value attributes, e.g. <!-- draft:story epic_id:12345 -->
  */
 function parseMessageContent(content) {
-  const markerPattern = /<!--\s*draft:(story|epic|objective|milestone)\s*-->/g;
+  const markerPattern = /<!--\s*draft:(story|epic|objective|milestone|prd)([^-]*)-->/g;
   const parts = [];
   let lastIndex = 0;
   let match;
@@ -29,12 +40,14 @@ function parseMessageContent(content) {
     if (match.index > lastIndex) {
       parts.push({ type: 'text', content: content.slice(lastIndex, match.index) });
     }
+    const attrs = parseAttrs(match[2]);
     // Find the end of this draft block: next marker or end of string
     const nextMarker = markerPattern.exec(content);
     if (nextMarker) {
       parts.push({
         type: 'draft',
         draftType: `draft:${match[1]}`,
+        attrs,
         content: match[0] + content.slice(match.index + match[0].length, nextMarker.index),
       });
       lastIndex = nextMarker.index;
@@ -44,6 +57,7 @@ function parseMessageContent(content) {
       parts.push({
         type: 'draft',
         draftType: `draft:${match[1]}`,
+        attrs,
         content: match[0] + content.slice(match.index + match[0].length),
       });
       lastIndex = content.length;
@@ -58,7 +72,7 @@ function parseMessageContent(content) {
   return parts;
 }
 
-export default function Message({ role, content, activeObjective, onSendMessage }) {
+export default function Message({ role, content, activeObjective, activeEpic, onSendMessage, onEpicCreated, onStoryCreated }) {
   const isUser = role === 'user';
 
   const parts = isUser ? [{ type: 'text', content }] : parseMessageContent(content);
@@ -102,9 +116,13 @@ export default function Message({ role, content, activeObjective, onSendMessage 
               <DraftCard
                 key={i}
                 draftType={part.draftType}
+                attrs={part.attrs}
                 content={part.content}
                 activeObjective={activeObjective}
+                activeEpic={activeEpic}
                 onSendMessage={onSendMessage}
+                onEpicCreated={onEpicCreated}
+                onStoryCreated={onStoryCreated}
               />
             );
           }

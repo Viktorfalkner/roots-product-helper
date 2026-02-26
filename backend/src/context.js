@@ -86,7 +86,7 @@ export function buildStaticPrompt(cache) {
  * Dynamic context — changes per request (active objective, transcript summary).
  * Not cached — kept separate and small.
  */
-export function buildDynamicContext(activeObjective = null, transcriptSummary = null, activeRepos = []) {
+export function buildDynamicContext(activeObjective = null, transcriptSummary = null, activeRepos = [], activeEpic = null) {
   const sections = [];
 
   if (transcriptSummary) {
@@ -155,6 +155,19 @@ ${
         .join('\n')
     : '(no epics yet)'
 }`);
+  }
+
+  if (activeEpic) {
+    const objectiveName = activeObjective?.name || 'unknown';
+    sections.push(`## Active Epic — Focus Work Here
+
+Break down work within this specific epic. All story drafts should target it.
+
+**Epic ID:** ${activeEpic.id}
+**Name:** ${activeEpic.name}
+**Objective:** ${objectiveName}
+
+Use this marker on every story draft: \`<!-- draft:story epic_id:${activeEpic.id} -->\``);
   }
 
   return sections.join('\n\n---\n\n');

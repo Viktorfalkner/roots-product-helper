@@ -61,14 +61,21 @@ export async function createEpic(payload) {
   return shortcutRequest('/epics', 'POST', payload);
 }
 
+export async function updateEpic(id, payload) {
+  return shortcutRequest(`/epics/${id}`, 'PUT', payload);
+}
+
 // --- Key Results / Milestones ---
 
 export async function createKeyResult(objectiveId, name) {
-  return shortcutRequest('/key-results', 'POST', {
+  return shortcutRequest(`/objectives/${objectiveId}/key-results`, 'POST', {
     name,
-    objective_id: objectiveId,
-    type: 'achieve_milestone',
+    type: 'boolean',
   });
+}
+
+export async function updateObjective(id, payload) {
+  return shortcutRequest(`/objectives/${id}`, 'PUT', payload);
 }
 
 // --- Stories ---
@@ -81,15 +88,22 @@ export async function createStory(payload) {
   return shortcutRequest('/stories', 'POST', payload);
 }
 
+// --- Workflows ---
+
+export async function listWorkflows() {
+  return shortcutRequest('/workflows');
+}
+
 // --- Full objective context (for active session) ---
 
 export async function getObjectiveWithContext(objectiveId) {
   const objective = await getObjective(objectiveId);
 
-  // Fetch epics linked to this objective
+  // Fetch epics linked to this objective (exclude archived)
   let epics = [];
   try {
-    epics = await listEpicsForObjective(objectiveId);
+    const allEpics = await listEpicsForObjective(objectiveId);
+    epics = allEpics.filter((e) => !e.archived);
   } catch (e) {
     console.warn('Could not fetch epics for objective:', e.message);
   }

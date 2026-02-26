@@ -19,6 +19,7 @@ import {
   getObjective,
   listEpicsForObjective,
   listStoriesForEpic,
+  listWorkflows,
 } from './shortcut.js';
 
 const DOC_IDS = {
@@ -128,8 +129,26 @@ async function main() {
     }
   }
 
+  // Fetch default workflow state ID
+  let default_workflow_state_id = null;
+  try {
+    console.log('\n  Fetching workflows...');
+    const workflows = await listWorkflows();
+    if (workflows.length > 0) {
+      const defaultWorkflow = workflows[0];
+      const unstartedState = defaultWorkflow.states?.find((s) => s.type === 'unstarted') || defaultWorkflow.states?.[0];
+      if (unstartedState) {
+        default_workflow_state_id = unstartedState.id;
+        console.log(`  Default workflow: "${defaultWorkflow.name}" → state: "${unstartedState.name}" (ID: ${unstartedState.id})`);
+      }
+    }
+  } catch (e) {
+    console.warn(`  Warning: could not fetch workflows: ${e.message}`);
+  }
+
   const cache = {
     refreshed_at: new Date().toISOString(),
+    default_workflow_state_id,
     sdlc_sop,
     story_template,
     epic_template,

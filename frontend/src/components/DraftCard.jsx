@@ -17,12 +17,20 @@ const SHORTCUT_ENDPOINTS = {
 };
 
 function extractTitle(content) {
-  const match = content.match(/^#+\s+(.+)$/m);
-  return match ? match[1].trim() : null;
+  const headingMatch = content.match(/^#+\s+(.+)$/m);
+  if (headingMatch) return headingMatch[1].trim();
+  const checkboxMatch = content.match(/^-\s+\[[ x]\]\s+(.+)$/m);
+  if (checkboxMatch) return checkboxMatch[1].trim();
+  return null;
 }
 
 function parseDraftContent(content) {
-  return content.replace(/<!--\s*draft:[a-z]+\s*-->\s*/g, '').trim();
+  return content.replace(/<!--\s*draft:[a-z]+[^-]*-->\s*/g, '').trim();
+}
+
+function stripTitleHeading(content, title) {
+  // Remove the first heading line if it matches the extracted title
+  return content.replace(/^#+\s+.+\n?/, '').trim();
 }
 
 function downloadMarkdown(filename, content) {
@@ -35,7 +43,7 @@ function downloadMarkdown(filename, content) {
   URL.revokeObjectURL(url);
 }
 
-export default function DraftCard({ draftType, content, activeObjective, onSendMessage }) {
+export default function DraftCard({ draftType, attrs, content, activeObjective, activeEpic, onSendMessage, onEpicCreated, onStoryCreated }) {
   const [creating, setCreating] = useState(false);
   const [created, setCreated] = useState(null);
   const [error, setError] = useState(null);
@@ -54,11 +62,13 @@ export default function DraftCard({ draftType, content, activeObjective, onSendM
     setError(null);
 
     try {
-      const payload = { name: title, description: cleanContent };
+      const payload = { name: title, description: stripTitleHeading(cleanContent, title) };
 
-      if (draftType === 'draft:story' && activeObjective) {
-        const firstEpic = activeObjective.epics?.find((e) => !e.completed);
-        if (firstEpic) payload.epic_id = firstEpic.id;
+      if (draftType === 'draft:story') {
+        const epicId = attrs?.epic_id
+          || activeEpic?.id
+          || activeObjective?.epics?.find((e) => !e.completed)?.id;
+        if (epicId) payload.epic_id = parseInt(epicId, 10);
       }
       if (draftType === 'draft:epic' && activeObjective) {
         payload.objective_id = activeObjective.id;
@@ -80,7 +90,14 @@ export default function DraftCard({ draftType, content, activeObjective, onSendM
 
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to create');
-      setCreated(data.story || data.epic || data.objective || data.key_result);
+      const createdItem = data.story || data.epic || data.objective || { ok: true };
+      setCreated(createdItem);
+      if (draftType === 'draft:epic' && data.epic) {
+        onEpicCreated?.(data.epic);
+      }
+      if (draftType === 'draft:story' && data.story) {
+        onStoryCreated?.(data.story);
+      }
     } catch (err) {
       setError(err.message);
     } finally {
@@ -186,7 +203,7 @@ export default function DraftCard({ draftType, content, activeObjective, onSendM
 
           {created && (
             <span style={{ fontSize: 12, color: 'var(--accent)', display: 'flex', alignItems: 'center', gap: 4 }}>
-              ✓ Created (ID: {created.id})
+              {created.id ? `✓ Created (ID: ${created.id})` : '✓ Added to Objective'}
             </span>
           )}
         </div>

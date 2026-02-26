@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect } from 'react';
 import Message from './Message.jsx';
 
+const CONTEXT_EPIC_RE = /<!--\s*context:epic\s+id:(\d+)\s*-->/;
+
 function getQuickStarters(activeObjective, transcriptSummary, activeRepos) {
   const hasMilestones = activeObjective?.key_results?.length > 0;
   const hasRepos = activeRepos?.length > 0;
@@ -94,7 +96,7 @@ const MODELS = [
   { id: 'claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5' },
 ];
 
-export default function Chat({ activeObjective, transcriptSummary, activeRepos, pendingPrd, onPrdSent, onRequestTranscriptPanel }) {
+export default function Chat({ activeObjective, transcriptSummary, activeRepos, pendingPrd, onPrdSent, onRequestTranscriptPanel, activeEpic, onEpicCreated, onStoryCreated }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -105,6 +107,10 @@ export default function Chat({ activeObjective, transcriptSummary, activeRepos, 
   const textareaRef = useRef(null);
   const abortRef = useRef(null);
   const lastEscRef = useRef(0);
+  const historyRef = useRef([]);       // sent messages, oldest → newest
+  const historyIndexRef = useRef(-1);  // -1 = not browsing
+  const draftRef = useRef('');         // preserves in-progress text while browsing
+  const navigatingRef = useRef(false); // prevents onChange from resetting index
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -130,6 +136,9 @@ export default function Chat({ activeObjective, transcriptSummary, activeRepos, 
 
     setInput('');
     setError(null);
+    historyRef.current.push(userMessage);
+    historyIndexRef.current = -1;
+    draftRef.current = '';
 
     const newMessages = [...messages, { role: 'user', content: userMessage }];
     setMessages(newMessages);
@@ -148,6 +157,7 @@ export default function Chat({ activeObjective, transcriptSummary, activeRepos, 
           transcript_summary: transcriptSummary || null,
           active_repos: activeRepos || [],
           model,
+          active_epic: activeEpic || null,
         }),
         signal: controller.signal,
       });
@@ -155,7 +165,19 @@ export default function Chat({ activeObjective, transcriptSummary, activeRepos, 
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Request failed');
 
-      setMessages([...newMessages, { role: 'assistant', content: data.response }]);
+      let responseText = data.response;
+
+      const epicMatch = responseText.match(CONTEXT_EPIC_RE);
+      if (epicMatch) {
+        const epicId = parseInt(epicMatch[1], 10);
+        responseText = responseText.replace(CONTEXT_EPIC_RE, '').replace(/\n{3,}/g, '\n\n').trim();
+        fetch(`/api/epic/${epicId}`)
+          .then(r => r.ok ? r.json() : Promise.reject(r.statusText))
+          .then(epic => onEpicCreated?.(epic))
+          .catch(err => console.warn('Failed to load epic context:', err));
+      }
+
+      setMessages([...newMessages, { role: 'assistant', content: responseText }]);
     } catch (err) {
       if (err.name === 'AbortError') {
         setError('Interrupted. (Press ESC twice while generating to cancel.)');
@@ -174,6 +196,41 @@ export default function Chat({ activeObjective, transcriptSummary, activeRepos, 
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       sendMessage(input);
+      return;
+    }
+
+    if (e.key === 'ArrowUp') {
+      const textarea = e.currentTarget;
+      const cursorOnFirstLine = !input.slice(0, textarea.selectionStart).includes('\n');
+      if (cursorOnFirstLine && historyRef.current.length > 0) {
+        e.preventDefault();
+        if (historyIndexRef.current === -1) draftRef.current = input;
+        const next = historyIndexRef.current === -1
+          ? historyRef.current.length - 1
+          : Math.max(0, historyIndexRef.current - 1);
+        historyIndexRef.current = next;
+        navigatingRef.current = true;
+        setInput(historyRef.current[next]);
+      }
+      return;
+    }
+
+    if (e.key === 'ArrowDown' && historyIndexRef.current !== -1) {
+      const textarea = e.currentTarget;
+      const cursorOnLastLine = !input.slice(textarea.selectionStart).includes('\n');
+      if (cursorOnLastLine) {
+        e.preventDefault();
+        if (historyIndexRef.current === historyRef.current.length - 1) {
+          historyIndexRef.current = -1;
+          navigatingRef.current = true;
+          setInput(draftRef.current);
+        } else {
+          historyIndexRef.current++;
+          navigatingRef.current = true;
+          setInput(historyRef.current[historyIndexRef.current]);
+        }
+      }
+      return;
     }
   }
 
@@ -282,7 +339,10 @@ export default function Chat({ activeObjective, transcriptSummary, activeRepos, 
                 role={msg.role}
                 content={msg.content}
                 activeObjective={activeObjective}
+                activeEpic={activeEpic}
                 onSendMessage={sendMessage}
+                onEpicCreated={onEpicCreated}
+                onStoryCreated={onStoryCreated}
               />
             ))}
             {loading && (
@@ -385,6 +445,11 @@ export default function Chat({ activeObjective, transcriptSummary, activeRepos, 
               ref={textareaRef}
               value={input}
               onChange={(e) => {
+                if (navigatingRef.current) {
+                  navigatingRef.current = false;
+                } else {
+                  historyIndexRef.current = -1;
+                }
                 setInput(e.target.value);
                 e.target.style.height = 'auto';
                 e.target.style.height = Math.min(e.target.scrollHeight, 160) + 'px';

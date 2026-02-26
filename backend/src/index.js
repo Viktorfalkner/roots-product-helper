@@ -12,14 +12,17 @@ const ROOT = resolve(__dirname, '../../');
 dotenv.config({ path: resolve(ROOT, '.env') });
 
 import { chat, summarizeTranscript } from './claude.js';
-import { getCacheStatus } from './context.js';
+import { loadCache, getCacheStatus } from './context.js';
 import { getRepoContext } from './github.js';
 import {
   getObjectiveWithContext,
+  getObjective,
+  getEpic,
   createStory,
   createEpic,
+  updateEpic,
   createObjective,
-  createKeyResult,
+  updateObjective,
 } from './shortcut.js';
 
 const app = express();
@@ -83,7 +86,7 @@ const ALLOWED_MODELS = new Set([
 ]);
 
 app.post('/api/chat', async (req, res) => {
-  const { messages, active_objective, transcript_summary, active_repos, model } = req.body;
+  const { messages, active_objective, transcript_summary, active_repos, model, active_epic } = req.body;
 
   if (!messages || !Array.isArray(messages)) {
     return res.status(400).json({ error: '`messages` array is required' });
@@ -92,7 +95,7 @@ app.post('/api/chat', async (req, res) => {
   const selectedModel = ALLOWED_MODELS.has(model) ? model : 'claude-opus-4-6';
 
   try {
-    const response = await chat(messages, active_objective || null, transcript_summary || null, active_repos || [], selectedModel);
+    const response = await chat(messages, active_objective || null, transcript_summary || null, active_repos || [], selectedModel, active_epic || null);
     res.json({ response });
   } catch (err) {
     console.error('Chat error:', err);
@@ -128,20 +131,36 @@ app.get('/api/objective/:id', async (req, res) => {
   }
 });
 
+// ─── Active Epic ──────────────────────────────────────────────────────────
+
+app.get('/api/epic/:id', async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) return res.status(400).json({ error: 'Invalid epic ID' });
+  try {
+    const raw = await getEpic(id);
+    res.json({ id: raw.id, name: raw.name, state: raw.state });
+  } catch (err) {
+    console.error('Epic fetch error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ─── Create Artifacts ─────────────────────────────────────────────────────
 
 app.post('/api/create/story', async (req, res) => {
-  const { name, description, epic_id, estimate, story_type } = req.body;
+  const { name, description, epic_id, estimate, story_type, workflow_state_id } = req.body;
 
   if (!name) return res.status(400).json({ error: '`name` is required' });
 
   try {
+    const cache = loadCache();
     const story = await createStory({
       name,
       description: description || '',
       epic_id: epic_id || undefined,
       estimate: estimate || undefined,
       story_type: story_type || 'feature',
+      workflow_state_id: workflow_state_id || cache?.default_workflow_state_id || undefined,
     });
     res.json({ ok: true, story });
   } catch (err) {
@@ -156,9 +175,12 @@ app.post('/api/create/epic', async (req, res) => {
   if (!name) return res.status(400).json({ error: '`name` is required' });
 
   try {
-    const payload = { name, description: description || '' };
-    if (objective_id) payload.objective_id = objective_id;
-    const epic = await createEpic(payload);
+    const epic = await createEpic({ name, description: description || '' });
+
+    if (objective_id) {
+      await updateEpic(epic.id, { objective_ids: [objective_id] });
+    }
+
     res.json({ ok: true, epic });
   } catch (err) {
     console.error('Create epic error:', err);
@@ -166,15 +188,59 @@ app.post('/api/create/epic', async (req, res) => {
   }
 });
 
+function formatMilestoneEntry(name, description) {
+  const stripped = description
+    .replace(/^#+\s+.+\n*/m, '')
+    .replace(/^-\s+\[[ x]\]\s+.+\n*/m, '')
+    .trim();
+  const indented = stripped
+    .split('\n')
+    .map((line) => (line.trim() ? `    ${line}` : ''))
+    .join('\n');
+  return `- [ ] ${name}\n${indented}`;
+}
+
+function appendToMilestonesSection(currentDesc, milestoneEntry) {
+  const MILESTONES_HEADER = '# MILESTONES';
+  const COMMITTED_HEADER = '#### COMMITTED MILESTONES';
+  const ENG_HEADER = '# ENGINEERING CONSIDERATIONS';
+
+  if (currentDesc.includes(MILESTONES_HEADER)) {
+    const anchor = currentDesc.includes(COMMITTED_HEADER) ? COMMITTED_HEADER : MILESTONES_HEADER;
+    const anchorEnd = currentDesc.indexOf(anchor) + anchor.length;
+    // Find the next ## or # section after the anchor to append before it
+    const afterAnchor = currentDesc.slice(anchorEnd);
+    const nextSection = afterAnchor.match(/\n#{1,2} /);
+    if (nextSection) {
+      const insertAt = anchorEnd + nextSection.index;
+      return currentDesc.slice(0, insertAt).trimEnd() + '\n\n' + milestoneEntry + '\n\n' + currentDesc.slice(insertAt).trimStart();
+    }
+    return currentDesc.trimEnd() + '\n\n' + milestoneEntry;
+  }
+  // Insert before ENGINEERING CONSIDERATIONS if present, otherwise append
+  if (currentDesc.includes(ENG_HEADER)) {
+    const idx = currentDesc.indexOf(ENG_HEADER);
+    return currentDesc.slice(0, idx).trimEnd() + '\n\n# MILESTONES\n#### COMMITTED MILESTONES\n\n' + milestoneEntry + '\n\n' + currentDesc.slice(idx);
+  }
+  return currentDesc.trimEnd() + '\n\n# MILESTONES\n#### COMMITTED MILESTONES\n\n' + milestoneEntry;
+}
+
 app.post('/api/create/milestone', async (req, res) => {
-  const { name, objective_id } = req.body;
+  const { name, description, objective_id } = req.body;
 
   if (!name) return res.status(400).json({ error: '`name` is required' });
   if (!objective_id) return res.status(400).json({ error: '`objective_id` is required — milestone must belong to an objective' });
 
   try {
-    const key_result = await createKeyResult(objective_id, name);
-    res.json({ ok: true, key_result });
+    if (description) {
+      const objective = await getObjective(objective_id);
+      const currentDesc = objective.description || '';
+      const milestoneEntry = formatMilestoneEntry(name, description);
+      const newDesc = appendToMilestonesSection(currentDesc, milestoneEntry);
+      await updateObjective(objective_id, { description: newDesc });
+    }
+
+    res.json({ ok: true });
   } catch (err) {
     console.error('Create milestone error:', err);
     res.status(500).json({ error: err.message });

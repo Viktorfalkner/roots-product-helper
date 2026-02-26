@@ -16,7 +16,7 @@ import { TRANSCRIPT_SYSTEM_PROMPT, transcriptExtractionPrompt } from './prompts.
  * @param {Object|null} activeObjective - Live objective context from Shortcut
  * @param {string|null} transcriptSummary - Pre-summarized meeting transcript
  */
-export async function chat(messages, activeObjective = null, transcriptSummary = null, activeRepos = [], model = 'claude-opus-4-6') {
+export async function chat(messages, activeObjective = null, transcriptSummary = null, activeRepos = [], model = 'claude-opus-4-6', activeEpic = null) {
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
   const cache = loadCache();
@@ -27,7 +27,7 @@ export async function chat(messages, activeObjective = null, transcriptSummary =
   }
 
   const staticPrompt = buildStaticPrompt(cache);
-  const dynamicContext = buildDynamicContext(activeObjective, transcriptSummary, activeRepos);
+  const dynamicContext = buildDynamicContext(activeObjective, transcriptSummary, activeRepos, activeEpic);
 
   // Build the system array. Static block is marked for caching — Anthropic
   // stores it for 5 minutes (TTL resets on each use), so a normal back-and-forth
