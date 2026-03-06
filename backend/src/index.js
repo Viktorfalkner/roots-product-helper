@@ -11,7 +11,7 @@ const ROOT = resolve(__dirname, '../../');
 
 dotenv.config({ path: resolve(ROOT, '.env') });
 
-import { chat, summarizeTranscript } from './claude.js';
+import { chat, chatStream, summarizeTranscript } from './claude.js';
 import { extractFigmaLinks, parseFigmaLinks, fetchFigmaImages, fetchFigmaNodeContext } from './figma.js';
 import { loadCache, getCacheStatus } from './context.js';
 import { getRepoContext, listUserRepos } from './github.js';
@@ -97,10 +97,10 @@ app.post('/api/chat', async (req, res) => {
   const selectedModel = ALLOWED_MODELS.has(model) ? model : 'claude-opus-4-6';
 
   try {
+    // Figma prep — parallel fetches before opening the stream
     const lastUserText = [...messages].reverse().find((m) => m.role === 'user')?.content || '';
     const messageLinks = extractFigmaLinks(typeof lastUserText === 'string' ? lastUserText : '');
     const contextLinks = parseFigmaLinks(figma_urls || []);
-    // Merge context links (sidebar) + message links, deduplicated, context first
     const seen = new Set(contextLinks.map((l) => l.url));
     const figmaLinks = [...contextLinks, ...messageLinks.filter((l) => !seen.has(l.url))];
 
@@ -109,16 +109,52 @@ app.post('/api/chat', async (req, res) => {
       fetchFigmaNodeContext(figmaLinks),
     ]);
 
-    const allImages = [
-      ...(pasted_images || []),
-      ...figmaImages,
-    ];
+    const allImages = [...(pasted_images || []), ...figmaImages];
 
-    const response = await chat(messages, active_objective || null, transcript_summary || null, active_repos || [], selectedModel, active_epic || null, allImages, figmaContexts);
-    res.json({ response });
+    // Open SSE connection
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders();
+
+    const stream = await chatStream(
+      messages,
+      active_objective || null,
+      transcript_summary || null,
+      active_repos || [],
+      selectedModel,
+      active_epic || null,
+      allImages,
+      figmaContexts
+    );
+
+    stream.on('text', (text) => {
+      res.write(`data: ${JSON.stringify({ text })}\n\n`);
+    });
+
+    stream.on('finalMessage', () => {
+      res.write('data: [DONE]\n\n');
+      res.end();
+    });
+
+    stream.on('error', (err) => {
+      console.error('Stream error:', err);
+      res.write(`data: ${JSON.stringify({ error: err.message })}\n\n`);
+      res.end();
+    });
+
+    // Abort the Claude stream if the client disconnects
+    req.on('close', () => stream.abort());
+
   } catch (err) {
     console.error('Chat error:', err);
-    res.status(500).json({ error: err.message });
+    // Headers not yet sent (Figma prep failed) — can still respond with JSON
+    if (!res.headersSent) {
+      res.status(500).json({ error: err.message });
+    } else {
+      res.write(`data: ${JSON.stringify({ error: err.message })}\n\n`);
+      res.end();
+    }
   }
 });
 

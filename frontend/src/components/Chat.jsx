@@ -198,10 +198,44 @@ export default function Chat({ activeObjective, transcriptSummary, activeRepos, 
         signal: controller.signal,
       });
 
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Request failed');
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Request failed');
+      }
 
-      let responseText = data.response;
+      // Read the SSE stream, appending tokens as they arrive
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let accumulated = '';
+      let buffer = '';
+
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop(); // hold back any incomplete line
+
+          for (const line of lines) {
+            if (!line.startsWith('data: ')) continue;
+            const raw = line.slice(6).trim();
+            if (raw === '[DONE]') break;
+            const parsed = JSON.parse(raw);
+            if (parsed.error) throw new Error(parsed.error);
+            if (parsed.text) {
+              accumulated += parsed.text;
+              setMessages([...newMessages, { role: 'assistant', content: accumulated, streaming: true }]);
+            }
+          }
+        }
+      } finally {
+        reader.releaseLock();
+      }
+
+      // Stream complete — run marker detection on full text, same as before
+      let responseText = accumulated;
 
       const epicMatch = responseText.match(CONTEXT_EPIC_RE);
       if (epicMatch) {
@@ -223,6 +257,7 @@ export default function Chat({ activeObjective, transcriptSummary, activeRepos, 
           .catch((err) => console.warn('Failed to load objective context:', err));
       }
 
+      // Final update — strip streaming flag so the message is stable
       setMessages([...newMessages, { role: 'assistant', content: responseText }]);
     } catch (err) {
       if (err.name === 'AbortError') {
@@ -431,7 +466,7 @@ export default function Chat({ activeObjective, transcriptSummary, activeRepos, 
                 ]}
               />
             ))}
-            {loading && (
+            {loading && !messages.some((m) => m.streaming) && (
               <div style={{ padding: '0 16px', marginBottom: 16 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   <div

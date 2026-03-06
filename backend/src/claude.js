@@ -3,22 +3,10 @@ import { loadCache, buildStaticPrompt, buildDynamicContext } from './context.js'
 import { TRANSCRIPT_SYSTEM_PROMPT, transcriptExtractionPrompt } from './prompts.js';
 
 /**
- * Send a chat message to Claude with full context injected.
- *
- * Static context (SOP, templates, reference objectives) is marked for prompt
- * caching. After the first call in a session, Anthropic caches this block and
- * subsequent turns pay ~10% of the normal input token cost for it.
- *
- * Dynamic context (active objective, transcript summary) is small and changes
- * per request — not cached.
- *
- * @param {Array} messages - Conversation history: [{role, content}]
- * @param {Object|null} activeObjective - Live objective context from Shortcut
- * @param {string|null} transcriptSummary - Pre-summarized meeting transcript
+ * Shared payload builder — assembles system blocks and final message array
+ * (including multimodal Figma transform) for both chat() and chatStream().
  */
-export async function chat(messages, activeObjective = null, transcriptSummary = null, activeRepos = [], model = 'claude-opus-4-6', activeEpic = null, figmaImages = [], figmaContexts = []) {
-  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-
+function buildApiPayload(messages, activeObjective, transcriptSummary, activeRepos, activeEpic, figmaImages, figmaContexts) {
   const cache = loadCache();
   if (!cache) {
     throw new Error(
@@ -29,9 +17,8 @@ export async function chat(messages, activeObjective = null, transcriptSummary =
   const staticPrompt = buildStaticPrompt(cache);
   const dynamicContext = buildDynamicContext(activeObjective, transcriptSummary, activeRepos, activeEpic);
 
-  // Build the system array. Static block is marked for caching — Anthropic
-  // stores it for 5 minutes (TTL resets on each use), so a normal back-and-forth
-  // session pays the cache write cost once and ~10% on every subsequent turn.
+  // Static block is marked for caching — Anthropic stores it for 5 minutes,
+  // so a normal back-and-forth session pays the write cost once and ~10% after.
   const systemBlocks = [
     {
       type: 'text',
@@ -41,14 +28,11 @@ export async function chat(messages, activeObjective = null, transcriptSummary =
   ];
 
   if (dynamicContext) {
-    systemBlocks.push({
-      type: 'text',
-      text: dynamicContext,
-    });
+    systemBlocks.push({ type: 'text', text: dynamicContext });
   }
 
   // If Figma content is present, transform the last user message into a
-  // multimodal content array: node context text first, then images, then the user text.
+  // multimodal content array: node context text first, then images, then user text.
   let finalMessages = messages;
   if ((figmaImages && figmaImages.length > 0) || (figmaContexts && figmaContexts.length > 0)) {
     finalMessages = [...messages];
@@ -57,7 +41,6 @@ export async function chat(messages, activeObjective = null, transcriptSummary =
       const textContent = typeof last.content === 'string' ? last.content : JSON.stringify(last.content);
       const contentBlocks = [];
 
-      // Inject node context as a structured text block so Claude understands the flow semantics
       if (figmaContexts && figmaContexts.length > 0) {
         const contextText = figmaContexts
           .map((ctx) => {
@@ -73,7 +56,6 @@ export async function chat(messages, activeObjective = null, transcriptSummary =
         });
       }
 
-      // Add rendered images
       for (const img of figmaImages) {
         contentBlocks.push({
           type: 'image',
@@ -83,12 +65,20 @@ export async function chat(messages, activeObjective = null, transcriptSummary =
 
       contentBlocks.push({ type: 'text', text: textContent });
 
-      finalMessages[finalMessages.length - 1] = {
-        ...last,
-        content: contentBlocks,
-      };
+      finalMessages[finalMessages.length - 1] = { ...last, content: contentBlocks };
     }
   }
+
+  return { systemBlocks, finalMessages };
+}
+
+/**
+ * Send a chat message and await the full response (non-streaming).
+ * Kept for any internal callers that need a plain string back.
+ */
+export async function chat(messages, activeObjective = null, transcriptSummary = null, activeRepos = [], model = 'claude-opus-4-6', activeEpic = null, figmaImages = [], figmaContexts = []) {
+  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  const { systemBlocks, finalMessages } = buildApiPayload(messages, activeObjective, transcriptSummary, activeRepos, activeEpic, figmaImages, figmaContexts);
 
   const response = await client.messages.create({
     model,
@@ -98,6 +88,23 @@ export async function chat(messages, activeObjective = null, transcriptSummary =
   });
 
   return response.content[0].text;
+}
+
+/**
+ * Send a chat message and return a live stream.
+ * The caller attaches .on('text', fn), .on('finalMessage', fn), .on('error', fn).
+ * Call stream.abort() to cancel.
+ */
+export async function chatStream(messages, activeObjective = null, transcriptSummary = null, activeRepos = [], model = 'claude-opus-4-6', activeEpic = null, figmaImages = [], figmaContexts = []) {
+  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  const { systemBlocks, finalMessages } = buildApiPayload(messages, activeObjective, transcriptSummary, activeRepos, activeEpic, figmaImages, figmaContexts);
+
+  return client.messages.stream({
+    model,
+    max_tokens: 8192,
+    system: systemBlocks,
+    messages: finalMessages,
+  });
 }
 
 /**
