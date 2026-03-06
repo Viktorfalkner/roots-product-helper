@@ -3,6 +3,7 @@ import Chat from './components/Chat.jsx';
 import ContextBadge from './components/ContextBadge.jsx';
 import ChatHistoryPanel from './components/ChatHistoryPanel.jsx';
 import { listChats, getChat, saveChat, updateChat, deleteChat } from './lib/chatHistory.js';
+import Settings from './components/Settings.jsx';
 
 function parseObjectiveId(input) {
   const trimmed = input.trim();
@@ -557,6 +558,8 @@ export default function App() {
   const [loadingRepo, setLoadingRepo] = useState(false);
   const [repoError, setRepoError] = useState(null);
   const [repoPickerOpen, setRepoPickerOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsStatus, setSettingsStatus] = useState(null);
   const [repoPickerList, setRepoPickerList] = useState(null);
   const [repoPickerLoading, setRepoPickerLoading] = useState(false);
   const [repoPickerError, setRepoPickerError] = useState(null);
@@ -613,6 +616,10 @@ export default function App() {
 
   useEffect(() => {
     fetchContextStatus();
+    fetch('/api/settings')
+      .then((r) => r.json())
+      .then((data) => setSettingsStatus(data.settings))
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -1796,6 +1803,31 @@ export default function App() {
         >
           <ReferenceLibrary />
         </div>
+
+        {/* Settings */}
+        <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: 12 }}>
+          <button
+            onClick={() => setSettingsOpen(true)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              width: '100%',
+              background: 'none',
+              border: 'none',
+              color: 'var(--text-dim)',
+              fontSize: 12,
+              padding: '4px 2px',
+              cursor: 'pointer',
+              textAlign: 'left',
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--text-muted)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-dim)'; }}
+          >
+            <span style={{ fontSize: 14 }}>⚙</span>
+            Settings
+          </button>
+        </div>
       </div>
 
       {/* Main chat area */}
@@ -1822,6 +1854,12 @@ export default function App() {
         />
       </div>
     </div>
+    {settingsOpen && (
+      <Settings
+        onClose={() => setSettingsOpen(false)}
+        initialStatus={settingsStatus}
+      />
+    )}
     {repoPickerOpen && (
       <RepoPicker
         repos={repoPickerList}
