@@ -20,6 +20,7 @@ import {
   listEpicsForObjective,
   listStoriesForEpic,
   listWorkflows,
+  listObjectives,
 } from './shortcut.js';
 
 const DOC_IDS = {
@@ -129,6 +130,19 @@ async function main() {
     }
   }
 
+  // Fetch objectives list
+  let objectives = [];
+  try {
+    console.log('\n  Fetching objectives list...');
+    const raw = await listObjectives();
+    objectives = raw
+      .filter((o) => !o.archived)
+      .map((o) => ({ id: o.id, name: o.name }));
+    console.log(`  ${objectives.length} objectives fetched`);
+  } catch (e) {
+    console.warn(`  Warning: could not fetch objectives: ${e.message}`);
+  }
+
   // Fetch default workflow state ID
   let default_workflow_state_id = null;
   try {
@@ -149,6 +163,7 @@ async function main() {
   const cache = {
     refreshed_at: new Date().toISOString(),
     default_workflow_state_id,
+    objectives,
     sdlc_sop,
     story_template,
     epic_template,

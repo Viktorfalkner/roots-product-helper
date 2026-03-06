@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import Message from './Message.jsx';
 
 const CONTEXT_EPIC_RE = /<!--\s*context:epic\s+id:(\d+)\s*-->/;
+const CONTEXT_OBJECTIVE_RE = /<!--\s*context:objective\s+id:(\d+)\s*-->/;
 const FIGMA_URL_RE = /https:\/\/www\.figma\.com\/(file|design)\/([a-zA-Z0-9]+)\/[^?\s]*\?[^#\s]*node-id=([^&\s#]+)/g;
 
 function extractFigmaUrls(text) {
@@ -108,7 +109,7 @@ const MODELS = [
   { id: 'claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5' },
 ];
 
-export default function Chat({ activeObjective, transcriptSummary, activeRepos, sidebarFigmaLinks, pendingPrd, onPrdSent, onRequestTranscriptPanel, activeEpic, onEpicCreated, onStoryCreated, messages, setMessages, model, setModel, chatFigmaLinks, setChatFigmaLinks }) {
+export default function Chat({ activeObjective, transcriptSummary, activeRepos, sidebarFigmaLinks, pendingPrd, onPrdSent, onRequestTranscriptPanel, activeEpic, onEpicCreated, onStoryCreated, onObjectiveLoaded, messages, setMessages, model, setModel, chatFigmaLinks, setChatFigmaLinks }) {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -210,6 +211,16 @@ export default function Chat({ activeObjective, transcriptSummary, activeRepos, 
           .then(r => r.ok ? r.json() : Promise.reject(r.statusText))
           .then(epic => onEpicCreated?.(epic))
           .catch(err => console.warn('Failed to load epic context:', err));
+      }
+
+      const objectiveMatch = responseText.match(CONTEXT_OBJECTIVE_RE);
+      if (objectiveMatch) {
+        const objectiveId = parseInt(objectiveMatch[1], 10);
+        responseText = responseText.replace(CONTEXT_OBJECTIVE_RE, '').replace(/\n{3,}/g, '\n\n').trim();
+        fetch(`/api/objective/${objectiveId}`)
+          .then((r) => r.json())
+          .then((data) => onObjectiveLoaded?.(data))
+          .catch((err) => console.warn('Failed to load objective context:', err));
       }
 
       setMessages([...newMessages, { role: 'assistant', content: responseText }]);

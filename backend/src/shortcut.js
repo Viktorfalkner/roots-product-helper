@@ -94,6 +94,12 @@ export async function listWorkflows() {
   return shortcutRequest('/workflows');
 }
 
+// --- Objectives list ---
+
+export async function listObjectives() {
+  return shortcutRequest('/objectives');
+}
+
 // --- Full objective context (for active session) ---
 
 export async function getObjectiveWithContext(objectiveId) {

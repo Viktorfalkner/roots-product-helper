@@ -77,6 +77,19 @@ export function buildStaticPrompt(cache) {
 
   sections.push(`## PRD Template\n\nWhen generating a PRD, use this exact structure:\n\n${PRD_TEMPLATE}`);
 
+  if (cache.objectives && cache.objectives.length > 0) {
+    const list = cache.objectives.map((o) => `- [ID: ${o.id}] ${o.name}`).join('\n');
+    sections.push(`## Available Objectives
+
+When the user asks you to load, pull up, or switch to an objective, output this marker in your response (the UI will load it automatically):
+
+\`<!-- context:objective id:NNN -->\`
+
+Replace NNN with the ID from this list. Confirm what you're loading in plain text before the marker.
+
+${list}`);
+  }
+
   sections.push(CRITICAL_RULES);
 
   return sections.join('\n\n---\n\n');

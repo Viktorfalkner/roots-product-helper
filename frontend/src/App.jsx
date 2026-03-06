@@ -1812,6 +1812,7 @@ export default function App() {
           activeEpic={activeEpic}
           onEpicCreated={setActiveEpic}
           onStoryCreated={setActiveStory}
+          onObjectiveLoaded={setActiveObjective}
           messages={messages}
           setMessages={setMessages}
           model={model}
