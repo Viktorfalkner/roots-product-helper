@@ -16,7 +16,7 @@ import { TRANSCRIPT_SYSTEM_PROMPT, transcriptExtractionPrompt } from './prompts.
  * @param {Object|null} activeObjective - Live objective context from Shortcut
  * @param {string|null} transcriptSummary - Pre-summarized meeting transcript
  */
-export async function chat(messages, activeObjective = null, transcriptSummary = null, activeRepos = [], model = 'claude-opus-4-6', activeEpic = null) {
+export async function chat(messages, activeObjective = null, transcriptSummary = null, activeRepos = [], model = 'claude-opus-4-6', activeEpic = null, figmaImages = [], figmaContexts = []) {
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
   const cache = loadCache();
@@ -47,11 +47,54 @@ export async function chat(messages, activeObjective = null, transcriptSummary =
     });
   }
 
+  // If Figma content is present, transform the last user message into a
+  // multimodal content array: node context text first, then images, then the user text.
+  let finalMessages = messages;
+  if ((figmaImages && figmaImages.length > 0) || (figmaContexts && figmaContexts.length > 0)) {
+    finalMessages = [...messages];
+    const last = finalMessages[finalMessages.length - 1];
+    if (last && last.role === 'user') {
+      const textContent = typeof last.content === 'string' ? last.content : JSON.stringify(last.content);
+      const contentBlocks = [];
+
+      // Inject node context as a structured text block so Claude understands the flow semantics
+      if (figmaContexts && figmaContexts.length > 0) {
+        const contextText = figmaContexts
+          .map((ctx) => {
+            const childList = ctx.children.length > 0
+              ? `\nLayers/sections:\n${ctx.children.map((c) => `  - ${c}`).join('\n')}`
+              : '';
+            return `Frame: "${ctx.name}" (type: ${ctx.type})${childList}`;
+          })
+          .join('\n\n');
+        contentBlocks.push({
+          type: 'text',
+          text: `[Figma Design Context]\n${contextText}`,
+        });
+      }
+
+      // Add rendered images
+      for (const img of figmaImages) {
+        contentBlocks.push({
+          type: 'image',
+          source: { type: 'base64', media_type: img.mediaType, data: img.base64 },
+        });
+      }
+
+      contentBlocks.push({ type: 'text', text: textContent });
+
+      finalMessages[finalMessages.length - 1] = {
+        ...last,
+        content: contentBlocks,
+      };
+    }
+  }
+
   const response = await client.messages.create({
     model,
     max_tokens: 8192,
     system: systemBlocks,
-    messages,
+    messages: finalMessages,
   });
 
   return response.content[0].text;

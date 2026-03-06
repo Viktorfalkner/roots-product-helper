@@ -72,7 +72,7 @@ function parseMessageContent(content) {
   return parts;
 }
 
-export default function Message({ role, content, activeObjective, activeEpic, onSendMessage, onEpicCreated, onStoryCreated }) {
+export default function Message({ role, content, images, activeObjective, activeEpic, onSendMessage, onEpicCreated, onStoryCreated, figmaLinks }) {
   const isUser = role === 'user';
 
   const parts = isUser ? [{ type: 'text', content }] : parseMessageContent(content);
@@ -123,6 +123,7 @@ export default function Message({ role, content, activeObjective, activeEpic, on
                 onSendMessage={onSendMessage}
                 onEpicCreated={onEpicCreated}
                 onStoryCreated={onStoryCreated}
+                figmaLinks={figmaLinks}
               />
             );
           }
@@ -143,10 +144,31 @@ export default function Message({ role, content, activeObjective, activeEpic, on
               }}
             >
               {isUser ? (
-                <span style={{ whiteSpace: 'pre-wrap' }}>{part.content}</span>
+                <>
+                  {images && images.length > 0 && (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: part.content.trim() ? 8 : 0 }}>
+                      {images.map((img, idx) => (
+                        <img
+                          key={idx}
+                          src={`data:${img.mediaType};base64,${img.base64}`}
+                          alt="pasted"
+                          style={{ maxWidth: 200, maxHeight: 150, borderRadius: 6, objectFit: 'cover', border: '1px solid var(--border)' }}
+                        />
+                      ))}
+                    </div>
+                  )}
+                  {part.content.trim() && <span style={{ whiteSpace: 'pre-wrap' }}>{part.content}</span>}
+                </>
               ) : (
                 <div className="markdown-body">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{part.content}</ReactMarkdown>
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
+                    components={{
+                      a: ({ href, children }) => (
+                        <a href={href} target="_blank" rel="noopener noreferrer">{children}</a>
+                      ),
+                    }}
+                  >{part.content}</ReactMarkdown>
                 </div>
               )}
             </div>

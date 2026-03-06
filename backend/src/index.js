@@ -12,12 +12,14 @@ const ROOT = resolve(__dirname, '../../');
 dotenv.config({ path: resolve(ROOT, '.env') });
 
 import { chat, summarizeTranscript } from './claude.js';
+import { extractFigmaLinks, parseFigmaLinks, fetchFigmaImages, fetchFigmaNodeContext } from './figma.js';
 import { loadCache, getCacheStatus } from './context.js';
 import { getRepoContext } from './github.js';
 import {
   getObjectiveWithContext,
   getObjective,
   getEpic,
+  listStoriesForEpic,
   createStory,
   createEpic,
   updateEpic,
@@ -86,7 +88,7 @@ const ALLOWED_MODELS = new Set([
 ]);
 
 app.post('/api/chat', async (req, res) => {
-  const { messages, active_objective, transcript_summary, active_repos, model, active_epic } = req.body;
+  const { messages, active_objective, transcript_summary, active_repos, model, active_epic, figma_urls } = req.body;
 
   if (!messages || !Array.isArray(messages)) {
     return res.status(400).json({ error: '`messages` array is required' });
@@ -95,7 +97,19 @@ app.post('/api/chat', async (req, res) => {
   const selectedModel = ALLOWED_MODELS.has(model) ? model : 'claude-opus-4-6';
 
   try {
-    const response = await chat(messages, active_objective || null, transcript_summary || null, active_repos || [], selectedModel, active_epic || null);
+    const lastUserText = [...messages].reverse().find((m) => m.role === 'user')?.content || '';
+    const messageLinks = extractFigmaLinks(typeof lastUserText === 'string' ? lastUserText : '');
+    const contextLinks = parseFigmaLinks(figma_urls || []);
+    // Merge context links (sidebar) + message links, deduplicated, context first
+    const seen = new Set(contextLinks.map((l) => l.url));
+    const figmaLinks = [...contextLinks, ...messageLinks.filter((l) => !seen.has(l.url))];
+
+    const [figmaImages, figmaContexts] = await Promise.all([
+      fetchFigmaImages(figmaLinks),
+      fetchFigmaNodeContext(figmaLinks),
+    ]);
+
+    const response = await chat(messages, active_objective || null, transcript_summary || null, active_repos || [], selectedModel, active_epic || null, figmaImages, figmaContexts);
     res.json({ response });
   } catch (err) {
     console.error('Chat error:', err);
@@ -137,8 +151,15 @@ app.get('/api/epic/:id', async (req, res) => {
   const id = parseInt(req.params.id, 10);
   if (isNaN(id)) return res.status(400).json({ error: 'Invalid epic ID' });
   try {
-    const raw = await getEpic(id);
-    res.json({ id: raw.id, name: raw.name, state: raw.state });
+    const [raw, allStories] = await Promise.all([getEpic(id), listStoriesForEpic(id)]);
+    const stories = allStories.map((s) => ({
+      id: s.id,
+      name: s.name,
+      story_type: s.story_type,
+      estimate: s.estimate,
+      completed: s.completed,
+    }));
+    res.json({ id: raw.id, name: raw.name, state: raw.state, stories });
   } catch (err) {
     console.error('Epic fetch error:', err);
     res.status(500).json({ error: err.message });
@@ -148,7 +169,7 @@ app.get('/api/epic/:id', async (req, res) => {
 // ─── Create Artifacts ─────────────────────────────────────────────────────
 
 app.post('/api/create/story', async (req, res) => {
-  const { name, description, epic_id, estimate, story_type, workflow_state_id } = req.body;
+  const { name, description, epic_id, estimate, story_type, workflow_state_id, external_links } = req.body;
 
   if (!name) return res.status(400).json({ error: '`name` is required' });
 
@@ -161,6 +182,7 @@ app.post('/api/create/story', async (req, res) => {
       estimate: estimate || undefined,
       story_type: story_type || 'feature',
       workflow_state_id: workflow_state_id || cache?.default_workflow_state_id || undefined,
+      ...(external_links?.length ? { external_links } : {}),
     });
     res.json({ ok: true, story });
   } catch (err) {

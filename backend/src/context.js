@@ -159,6 +159,17 @@ ${
 
   if (activeEpic) {
     const objectiveName = activeObjective?.name || 'unknown';
+    const storiesText =
+      activeEpic.stories && activeEpic.stories.length > 0
+        ? activeEpic.stories
+            .map((s) => {
+              const status = s.completed ? '✓' : '○';
+              const pts = s.estimate ? ` (${s.estimate}pt)` : '';
+              return `  ${status} [ID: ${s.id}] ${s.name}${pts} — ${s.story_type}`;
+            })
+            .join('\n')
+        : '  (no stories yet)';
+
     sections.push(`## Active Epic — Focus Work Here
 
 Break down work within this specific epic. All story drafts should target it.
@@ -166,6 +177,9 @@ Break down work within this specific epic. All story drafts should target it.
 **Epic ID:** ${activeEpic.id}
 **Name:** ${activeEpic.name}
 **Objective:** ${objectiveName}
+
+**Stories (${activeEpic.stories?.length || 0} total):**
+${storiesText}
 
 Use this marker on every story draft: \`<!-- draft:story epic_id:${activeEpic.id} -->\``);
   }

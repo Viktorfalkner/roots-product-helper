@@ -13,6 +13,18 @@ function parseObjectiveId(input) {
   return null;
 }
 
+const FIGMA_URL_RE = /https:\/\/www\.figma\.com\/(file|design)\/([a-zA-Z0-9]+)\/([^?#\s]*)\?[^#\s]*node-id=([^&\s#]+)/;
+
+function parseFigmaInput(input) {
+  const trimmed = input.trim();
+  const match = trimmed.match(FIGMA_URL_RE);
+  if (!match) return null;
+  const slug = decodeURIComponent(match[3]).replace(/-/g, ' ').trim();
+  const nodeId = decodeURIComponent(match[4]);
+  const label = slug ? `${slug} — ${nodeId}` : nodeId;
+  return { url: trimmed, label };
+}
+
 function parseRepoInput(input) {
   const trimmed = input.trim();
   const urlMatch = trimmed.match(/github\.com\/([^/]+)\/([^/\s]+)/);
@@ -411,6 +423,10 @@ export default function App() {
   const [repoExpanded, setRepoExpanded] = useState(false);
   const [loadingRepo, setLoadingRepo] = useState(false);
   const [repoError, setRepoError] = useState(null);
+  const [figmaLinks, setFigmaLinks] = useState([]);
+  const [figmaInput, setFigmaInput] = useState('');
+  const [figmaExpanded, setFigmaExpanded] = useState(false);
+  const [figmaError, setFigmaError] = useState(null);
   // Each entry: { id, name, summary } — summary is null while loading
   const [transcripts, setTranscripts] = useState([]);
   const [transcriptExpanded, setTranscriptExpanded] = useState(false);
@@ -513,6 +529,15 @@ export default function App() {
     } finally {
       setLoadingRepo(false);
     }
+  }
+
+  function handleAddFigmaLink() {
+    const parsed = parseFigmaInput(figmaInput);
+    if (!parsed) { setFigmaError('Paste a Figma URL with a node-id'); return; }
+    if (figmaLinks.some((l) => l.url === parsed.url)) { setFigmaError('Already added'); return; }
+    setFigmaLinks((prev) => [...prev, parsed]);
+    setFigmaInput('');
+    setFigmaError(null);
   }
 
   async function addTranscript(name, rawText) {
@@ -1227,6 +1252,140 @@ export default function App() {
           )}
         </div>
 
+        {/* Figma Links */}
+        <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: 16 }}>
+          <button
+            onClick={() => setFigmaExpanded((v) => !v)}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: figmaLinks.length > 0 ? 'var(--text-muted)' : 'var(--text-dim)',
+              fontSize: 11,
+              fontWeight: 600,
+              textTransform: 'uppercase',
+              letterSpacing: '0.08em',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              padding: 0,
+              width: '100%',
+              marginBottom: figmaExpanded ? 8 : 0,
+            }}
+          >
+            <span style={{ color: 'var(--text-dim)' }}>{figmaExpanded ? '▾' : '▸'}</span>
+            Figma
+            {figmaLinks.length > 0 && (
+              <span
+                style={{
+                  marginLeft: 'auto',
+                  background: 'color-mix(in srgb, #a78bfa 15%, transparent)',
+                  color: '#a78bfa',
+                  borderRadius: 3,
+                  padding: '1px 5px',
+                  fontSize: 10,
+                  fontWeight: 700,
+                  letterSpacing: 0,
+                  textTransform: 'none',
+                }}
+              >
+                {figmaLinks.length} loaded
+              </span>
+            )}
+          </button>
+
+          {figmaExpanded && (
+            <div>
+              {figmaLinks.length > 0 && (
+                <div style={{ marginBottom: 8 }}>
+                  {figmaLinks.map((link) => (
+                    <div
+                      key={link.url}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 8,
+                        padding: '5px 0',
+                        borderBottom: '1px solid var(--border-subtle)',
+                      }}
+                    >
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div
+                          style={{
+                            fontSize: 11,
+                            color: '#a78bfa',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                          }}
+                          title={link.url}
+                        >
+                          {link.label}
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => setFigmaLinks((prev) => prev.filter((l) => l.url !== link.url))}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: 'var(--text-dim)',
+                          fontSize: 14,
+                          cursor: 'pointer',
+                          padding: '0 2px',
+                          lineHeight: 1,
+                          flexShrink: 0,
+                        }}
+                        title="Remove"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div style={{ display: 'flex', gap: 6 }}>
+                <input
+                  value={figmaInput}
+                  onChange={(e) => { setFigmaInput(e.target.value); setFigmaError(null); }}
+                  onKeyDown={(e) => e.key === 'Enter' && handleAddFigmaLink()}
+                  placeholder="Paste Figma URL with node-id"
+                  style={{
+                    flex: 1,
+                    background: 'var(--bg-elevated)',
+                    border: `1px solid ${figmaError ? 'var(--red)' : 'var(--border)'}`,
+                    borderRadius: 'var(--radius-sm)',
+                    color: 'var(--text)',
+                    fontSize: 12,
+                    padding: '4px 8px',
+                    outline: 'none',
+                  }}
+                />
+                <button
+                  onClick={handleAddFigmaLink}
+                  disabled={!figmaInput.trim()}
+                  style={{
+                    background: 'var(--bg-elevated)',
+                    border: '1px solid var(--border)',
+                    borderRadius: 'var(--radius-sm)',
+                    color: figmaInput.trim() ? 'var(--text-muted)' : 'var(--text-dim)',
+                    fontSize: 12,
+                    padding: '4px 10px',
+                    cursor: figmaInput.trim() ? 'pointer' : 'not-allowed',
+                  }}
+                >
+                  Add
+                </button>
+              </div>
+              {figmaError && (
+                <div style={{ color: 'var(--red)', fontSize: 11, marginTop: 4 }}>
+                  {figmaError}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
         {/* GitHub Repos */}
         <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: 16 }}>
           <button
@@ -1382,6 +1541,7 @@ export default function App() {
           activeObjective={activeObjective}
           transcriptSummary={transcriptSummary}
           activeRepos={activeRepos}
+          sidebarFigmaLinks={figmaLinks}
           pendingPrd={pendingPrd}
           onPrdSent={() => setPendingPrd(null)}
           onRequestTranscriptPanel={() => setTranscriptExpanded(true)}

@@ -43,7 +43,7 @@ function downloadMarkdown(filename, content) {
   URL.revokeObjectURL(url);
 }
 
-export default function DraftCard({ draftType, attrs, content, activeObjective, activeEpic, onSendMessage, onEpicCreated, onStoryCreated }) {
+export default function DraftCard({ draftType, attrs, content, activeObjective, activeEpic, onSendMessage, onEpicCreated, onStoryCreated, figmaLinks }) {
   const [creating, setCreating] = useState(false);
   const [created, setCreated] = useState(null);
   const [error, setError] = useState(null);
@@ -80,6 +80,10 @@ export default function DraftCard({ draftType, attrs, content, activeObjective, 
           return;
         }
         payload.objective_id = activeObjective.id;
+      }
+
+      if (draftType === 'draft:story' && figmaLinks?.length) {
+        payload.external_links = figmaLinks.map((l) => l.url);
       }
 
       const res = await fetch(SHORTCUT_ENDPOINTS[draftType], {

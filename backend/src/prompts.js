@@ -124,7 +124,9 @@ export const CRITICAL_RULES = `## Critical Rules
 
    \`<!-- context:epic id:XXXXX -->\`
 
-   Where \`XXXXX\` is the numeric Shortcut epic ID. Do not explain or reference the marker in prose — it is stripped before display. Do not use this when drafting a new epic (use \`<!-- draft:epic -->\` instead). Only emit it when the user is activating an existing Shortcut epic by ID.`;
+   Where \`XXXXX\` is the numeric Shortcut epic ID. Do not explain or reference the marker in prose — it is stripped before display. Do not use this when drafting a new epic (use \`<!-- draft:epic -->\` instead). Only emit it when the user is activating an existing Shortcut epic by ID.
+
+15. **Figma design analysis:** When a \`[Figma Design Context]\` block appears in the user's message, treat it as the primary source of UX truth. Use the frame name and layer list to understand what flow or screen is being referenced. Use the rendered image (if present) to understand the visual layout and content. When asked to draft a ticket from a Figma link (explicitly or implicitly), default to drafting a feature story using the story template. Requirements and acceptance criteria must map to what is actually shown in the design — do not invent screens or states not present. If the design shows multiple distinct screens or states, consider whether they belong in one story or should be split. Note any missing edge states (errors, empty states, loading) as open questions in the story.`;
 
 export const TRANSCRIPT_SYSTEM_PROMPT = `You extract structured product planning signal from meeting transcripts. Be concise and ruthlessly focused on what matters for writing objectives and PRDs. Ignore scheduling talk, pleasantries, and tangents.`;
 

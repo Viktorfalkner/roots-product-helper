@@ -13,8 +13,8 @@ async function githubRequest(path) {
 export async function getRepoContext(owner, repo) {
   const [repoData, prs, issues, readmeData] = await Promise.all([
     githubRequest(`/repos/${owner}/${repo}`),
-    githubRequest(`/repos/${owner}/${repo}/pulls?state=open&per_page=10&sort=updated`),
-    githubRequest(`/repos/${owner}/${repo}/issues?state=open&per_page=10&sort=updated`),
+    githubRequest(`/repos/${owner}/${repo}/pulls?state=open&per_page=10&sort=updated`).catch(() => []),
+    githubRequest(`/repos/${owner}/${repo}/issues?state=open&per_page=10&sort=updated`).catch(() => []),
     githubRequest(`/repos/${owner}/${repo}/readme`).catch(() => null),
   ]);
 

@@ -2,6 +2,18 @@ import { useState, useRef, useEffect } from 'react';
 import Message from './Message.jsx';
 
 const CONTEXT_EPIC_RE = /<!--\s*context:epic\s+id:(\d+)\s*-->/;
+const FIGMA_URL_RE = /https:\/\/www\.figma\.com\/(file|design)\/([a-zA-Z0-9]+)\/[^?\s]*\?[^#\s]*node-id=([^&\s#]+)/g;
+
+function extractFigmaUrls(text) {
+  if (!text) return [];
+  FIGMA_URL_RE.lastIndex = 0;
+  const urls = [];
+  let match;
+  while ((match = FIGMA_URL_RE.exec(text)) !== null) {
+    urls.push(match[0]);
+  }
+  return urls;
+}
 
 function getQuickStarters(activeObjective, transcriptSummary, activeRepos) {
   const hasMilestones = activeObjective?.key_results?.length > 0;
@@ -96,13 +108,15 @@ const MODELS = [
   { id: 'claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5' },
 ];
 
-export default function Chat({ activeObjective, transcriptSummary, activeRepos, pendingPrd, onPrdSent, onRequestTranscriptPanel, activeEpic, onEpicCreated, onStoryCreated }) {
+export default function Chat({ activeObjective, transcriptSummary, activeRepos, sidebarFigmaLinks, pendingPrd, onPrdSent, onRequestTranscriptPanel, activeEpic, onEpicCreated, onStoryCreated }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [model, setModel] = useState('claude-opus-4-6');
+  const [figmaLinks, setFigmaLinks] = useState([]);
   const [pendingModel, setPendingModel] = useState(null);
+  const [pendingImages, setPendingImages] = useState([]); // [{base64, mediaType}]
   const bottomRef = useRef(null);
   const textareaRef = useRef(null);
   const abortRef = useRef(null);
@@ -144,10 +158,26 @@ export default function Chat({ activeObjective, transcriptSummary, activeRepos, 
     setMessages(newMessages);
     setLoading(true);
 
+    // Accumulate any Figma URLs from this message
+    const newFigmaUrls = extractFigmaUrls(userMessage);
+    if (newFigmaUrls.length > 0) {
+      setFigmaLinks((prev) => {
+        const existing = new Set(prev.map((l) => l.url));
+        const additions = newFigmaUrls.filter((u) => !existing.has(u)).map((u) => ({ url: u }));
+        return [...prev, ...additions];
+      });
+    }
+
     const controller = new AbortController();
     abortRef.current = controller;
 
     try {
+      // Merge sidebar figma links + any detected in this message
+      const allFigmaUrls = [
+        ...(sidebarFigmaLinks || []).map((l) => l.url),
+        ...newFigmaUrls.filter((u) => !(sidebarFigmaLinks || []).some((l) => l.url === u)),
+      ];
+
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -158,6 +188,7 @@ export default function Chat({ activeObjective, transcriptSummary, activeRepos, 
           active_repos: activeRepos || [],
           model,
           active_epic: activeEpic || null,
+          figma_urls: allFigmaUrls.length > 0 ? allFigmaUrls : undefined,
         }),
         signal: controller.signal,
       });
@@ -343,6 +374,10 @@ export default function Chat({ activeObjective, transcriptSummary, activeRepos, 
                 onSendMessage={sendMessage}
                 onEpicCreated={onEpicCreated}
                 onStoryCreated={onStoryCreated}
+                figmaLinks={[
+                  ...(sidebarFigmaLinks || []),
+                  ...figmaLinks.filter((l) => !(sidebarFigmaLinks || []).some((s) => s.url === l.url)),
+                ]}
               />
             ))}
             {loading && (
@@ -439,6 +474,36 @@ export default function Chat({ activeObjective, transcriptSummary, activeRepos, 
             padding: '8px 12px',
           }}
         >
+          {/* Figma frame pill */}
+          {extractFigmaUrls(input).length > 0 && (
+            <div style={{ marginBottom: 6, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              {extractFigmaUrls(input).map((url, i) => (
+                <span
+                  key={i}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 4,
+                    fontSize: 11,
+                    color: '#a78bfa',
+                    background: 'color-mix(in srgb, #a78bfa 12%, transparent)',
+                    border: '1px solid color-mix(in srgb, #a78bfa 30%, transparent)',
+                    borderRadius: 4,
+                    padding: '2px 7px',
+                  }}
+                >
+                  <svg width="10" height="10" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <rect x="0.5" y="0.5" width="6" height="6" rx="1" fill="#a78bfa" />
+                    <rect x="8.5" y="0.5" width="6" height="6" rx="3" fill="#a78bfa" />
+                    <rect x="0.5" y="8.5" width="6" height="6" rx="3" fill="#a78bfa" />
+                    <rect x="8.5" y="8.5" width="6" height="6" rx="1" fill="#a78bfa" />
+                  </svg>
+                  Figma frame detected
+                </span>
+              ))}
+            </div>
+          )}
+
           {/* Textarea + send row */}
           <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
             <textarea
