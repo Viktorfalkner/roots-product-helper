@@ -146,15 +146,17 @@ export default function Chat({ activeObjective, transcriptSummary, activeRepos, 
 
   async function sendMessage(text) {
     const userMessage = text.trim();
-    if (!userMessage || loading) return;
+    if ((!userMessage && pendingImages.length === 0) || loading) return;
 
+    const imagesToSend = [...pendingImages];
     setInput('');
+    setPendingImages([]);
     setError(null);
-    historyRef.current.push(userMessage);
+    if (userMessage) historyRef.current.push(userMessage);
     historyIndexRef.current = -1;
     draftRef.current = '';
 
-    const newMessages = [...messages, { role: 'user', content: userMessage }];
+    const newMessages = [...messages, { role: 'user', content: userMessage, images: imagesToSend.length > 0 ? imagesToSend : undefined }];
     setMessages(newMessages);
     setLoading(true);
 
@@ -178,17 +180,21 @@ export default function Chat({ activeObjective, transcriptSummary, activeRepos, 
         ...newFigmaUrls.filter((u) => !(sidebarFigmaLinks || []).some((l) => l.url === u)),
       ];
 
+      // Strip frontend-only `images` field before sending to API
+      const apiMessages = newMessages.map(({ images: _images, ...rest }) => rest);
+
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          messages: newMessages,
+          messages: apiMessages,
           active_objective: activeObjective || null,
           transcript_summary: transcriptSummary || null,
           active_repos: activeRepos || [],
           model,
           active_epic: activeEpic || null,
           figma_urls: allFigmaUrls.length > 0 ? allFigmaUrls : undefined,
+          pasted_images: imagesToSend.length > 0 ? imagesToSend : undefined,
         }),
         signal: controller.signal,
       });
@@ -262,6 +268,41 @@ export default function Chat({ activeObjective, transcriptSummary, activeRepos, 
         }
       }
       return;
+    }
+  }
+
+  function addImageFile(file) {
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const dataUrl = ev.target.result;
+      const commaIdx = dataUrl.indexOf(',');
+      const base64 = dataUrl.slice(commaIdx + 1);
+      setPendingImages((prev) => [...prev, { base64, mediaType: file.type }]);
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function handlePaste(e) {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (const item of items) {
+      if (item.type.startsWith('image/')) {
+        e.preventDefault();
+        addImageFile(item.getAsFile());
+      }
+    }
+  }
+
+  function handleDragOver(e) {
+    e.preventDefault();
+  }
+
+  function handleDrop(e) {
+    e.preventDefault();
+    for (const file of e.dataTransfer.files) {
+      if (file.type.startsWith('image/')) {
+        addImageFile(file);
+      }
     }
   }
 
@@ -369,6 +410,7 @@ export default function Chat({ activeObjective, transcriptSummary, activeRepos, 
                 key={i}
                 role={msg.role}
                 content={msg.content}
+                images={msg.images}
                 activeObjective={activeObjective}
                 activeEpic={activeEpic}
                 onSendMessage={sendMessage}
@@ -474,6 +516,32 @@ export default function Chat({ activeObjective, transcriptSummary, activeRepos, 
             padding: '8px 12px',
           }}
         >
+          {/* Pasted image previews */}
+          {pendingImages.length > 0 && (
+            <div style={{ marginBottom: 6, display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+              {pendingImages.map((img, i) => (
+                <div key={i} style={{ position: 'relative' }}>
+                  <img
+                    src={`data:${img.mediaType};base64,${img.base64}`}
+                    alt="pasted"
+                    style={{ height: 56, width: 'auto', maxWidth: 120, borderRadius: 6, objectFit: 'cover', border: '1px solid var(--border)', display: 'block' }}
+                  />
+                  <button
+                    onClick={() => setPendingImages((prev) => prev.filter((_, j) => j !== i))}
+                    style={{
+                      position: 'absolute', top: -5, right: -5,
+                      width: 16, height: 16, borderRadius: '50%',
+                      background: 'var(--bg-elevated)', border: '1px solid var(--border)',
+                      color: 'var(--text-muted)', fontSize: 10, lineHeight: 1,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      cursor: 'pointer', padding: 0,
+                    }}
+                  >×</button>
+                </div>
+              ))}
+            </div>
+          )}
+
           {/* Figma frame pill */}
           {extractFigmaUrls(input).length > 0 && (
             <div style={{ marginBottom: 6, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
@@ -520,6 +588,9 @@ export default function Chat({ activeObjective, transcriptSummary, activeRepos, 
                 e.target.style.height = Math.min(e.target.scrollHeight, 160) + 'px';
               }}
               onKeyDown={handleKeyDown}
+              onPaste={handlePaste}
+              onDragOver={handleDragOver}
+              onDrop={handleDrop}
               placeholder="Ask me to draft an objective, epic, or story..."
               disabled={loading}
               rows={1}

@@ -88,7 +88,7 @@ const ALLOWED_MODELS = new Set([
 ]);
 
 app.post('/api/chat', async (req, res) => {
-  const { messages, active_objective, transcript_summary, active_repos, model, active_epic, figma_urls } = req.body;
+  const { messages, active_objective, transcript_summary, active_repos, model, active_epic, figma_urls, pasted_images } = req.body;
 
   if (!messages || !Array.isArray(messages)) {
     return res.status(400).json({ error: '`messages` array is required' });
@@ -109,7 +109,12 @@ app.post('/api/chat', async (req, res) => {
       fetchFigmaNodeContext(figmaLinks),
     ]);
 
-    const response = await chat(messages, active_objective || null, transcript_summary || null, active_repos || [], selectedModel, active_epic || null, figmaImages, figmaContexts);
+    const allImages = [
+      ...(pasted_images || []),
+      ...figmaImages,
+    ];
+
+    const response = await chat(messages, active_objective || null, transcript_summary || null, active_repos || [], selectedModel, active_epic || null, allImages, figmaContexts);
     res.json({ response });
   } catch (err) {
     console.error('Chat error:', err);
