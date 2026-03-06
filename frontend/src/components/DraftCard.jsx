@@ -57,36 +57,47 @@ export default function DraftCard({ draftType, attrs, content, activeObjective, 
   const isObjective = draftType === 'draft:objective';
   const hasShortcutCreate = SHORTCUT_ENDPOINTS[draftType] != null;
 
+  // When an epic is already active and Claude drafts an epic, offer to update it instead of creating a new one
+  const isEpicUpdate = draftType === 'draft:epic' && !!activeEpic;
+
   async function handleCreate() {
     setCreating(true);
     setError(null);
 
     try {
-      const payload = { name: title, description: stripTitleHeading(cleanContent, title) };
+      let endpoint;
+      let payload;
 
-      if (draftType === 'draft:story') {
-        const epicId = attrs?.epic_id
-          || activeEpic?.id
-          || activeObjective?.epics?.find((e) => !e.completed)?.id;
-        if (epicId) payload.epic_id = parseInt(epicId, 10);
-      }
-      if (draftType === 'draft:epic' && activeObjective) {
-        payload.objective_id = activeObjective.id;
-      }
-      if (draftType === 'draft:milestone') {
-        if (!activeObjective) {
-          setError('Load an objective first to create milestones');
-          setCreating(false);
-          return;
+      if (isEpicUpdate) {
+        endpoint = '/api/update/epic';
+        payload = { id: activeEpic.id, description: stripTitleHeading(cleanContent, title) };
+      } else {
+        endpoint = SHORTCUT_ENDPOINTS[draftType];
+        payload = { name: title, description: stripTitleHeading(cleanContent, title) };
+
+        if (draftType === 'draft:story') {
+          const epicId = attrs?.epic_id
+            || activeEpic?.id
+            || activeObjective?.epics?.find((e) => !e.completed)?.id;
+          if (epicId) payload.epic_id = parseInt(epicId, 10);
         }
-        payload.objective_id = activeObjective.id;
+        if (draftType === 'draft:epic' && activeObjective) {
+          payload.objective_id = activeObjective.id;
+        }
+        if (draftType === 'draft:milestone') {
+          if (!activeObjective) {
+            setError('Load an objective first to create milestones');
+            setCreating(false);
+            return;
+          }
+          payload.objective_id = activeObjective.id;
+        }
+        if (draftType === 'draft:story' && figmaLinks?.length) {
+          payload.external_links = figmaLinks.map((l) => l.url);
+        }
       }
 
-      if (draftType === 'draft:story' && figmaLinks?.length) {
-        payload.external_links = figmaLinks.map((l) => l.url);
-      }
-
-      const res = await fetch(SHORTCUT_ENDPOINTS[draftType], {
+      const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -201,13 +212,23 @@ export default function DraftCard({ draftType, attrs, content, activeObjective, 
 
 {hasShortcutCreate && !created && (
             <button onClick={handleCreate} disabled={creating} style={primaryBtn(typeColor)}>
-              {creating ? 'Creating...' : draftType === 'draft:milestone' ? 'Add to Objective' : 'Create in Shortcut'}
+              {creating
+                ? (isEpicUpdate ? 'Updating...' : 'Creating...')
+                : isEpicUpdate
+                  ? `Update Epic ${activeEpic.id}`
+                  : draftType === 'draft:milestone'
+                    ? 'Add to Objective'
+                    : 'Create in Shortcut'}
             </button>
           )}
 
           {created && (
             <span style={{ fontSize: 12, color: 'var(--accent)', display: 'flex', alignItems: 'center', gap: 4 }}>
-              {created.id ? `✓ Created (ID: ${created.id})` : '✓ Added to Objective'}
+              {isEpicUpdate
+                ? `✓ Updated Epic ${activeEpic.id}`
+                : created.id
+                  ? `✓ Created (ID: ${created.id})`
+                  : '✓ Added to Objective'}
             </span>
           )}
         </div>

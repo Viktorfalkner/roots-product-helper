@@ -196,6 +196,19 @@ app.post('/api/create/story', async (req, res) => {
   }
 });
 
+app.post('/api/update/epic', async (req, res) => {
+  const { id, description } = req.body;
+  if (!id) return res.status(400).json({ error: '`id` is required' });
+
+  try {
+    const epic = await updateEpic(id, { description: description || '' });
+    res.json({ ok: true, epic });
+  } catch (err) {
+    console.error('Update epic error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.post('/api/create/epic', async (req, res) => {
   const { name, description, objective_id } = req.body;
 
