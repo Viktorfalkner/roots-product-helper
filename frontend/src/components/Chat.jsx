@@ -119,6 +119,7 @@ export default function Chat({ activeObjective, transcriptSummary, activeRepos, 
   const [pendingImages, setPendingImages] = useState([]); // [{base64, mediaType}]
   const bottomRef = useRef(null);
   const textareaRef = useRef(null);
+  const fileInputRef = useRef(null);
   const abortRef = useRef(null);
   const lastEscRef = useRef(0);
   const historyRef = useRef([]);       // sent messages, oldest → newest
@@ -574,6 +575,19 @@ export default function Chat({ activeObjective, transcriptSummary, activeRepos, 
 
           {/* Textarea + send row */}
           <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              style={{ display: 'none' }}
+              onChange={(e) => {
+                for (const file of e.target.files) {
+                  addImageFile(file);
+                }
+                e.target.value = '';
+              }}
+            />
             <textarea
               ref={textareaRef}
               value={input}
@@ -608,10 +622,37 @@ export default function Chat({ activeObjective, transcriptSummary, activeRepos, 
               }}
             />
             <button
-              onClick={() => sendMessage(input)}
-              disabled={loading || !input.trim()}
+              onClick={() => fileInputRef.current?.click()}
+              disabled={loading}
+              title="Upload image"
               style={{
-                background: input.trim() && !loading ? 'var(--accent)' : 'var(--bg-hover)',
+                background: 'none',
+                border: '1px solid var(--border)',
+                borderRadius: 6,
+                width: 32,
+                height: 32,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+                cursor: loading ? 'not-allowed' : 'pointer',
+                color: 'var(--text-dim)',
+                transition: 'border-color 0.15s, color 0.15s',
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--text-dim)'; e.currentTarget.style.color = 'var(--text)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-dim)'; }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                <circle cx="8.5" cy="8.5" r="1.5"/>
+                <polyline points="21 15 16 10 5 21"/>
+              </svg>
+            </button>
+            <button
+              onClick={() => sendMessage(input)}
+              disabled={loading || (!input.trim() && pendingImages.length === 0)}
+              style={{
+                background: (input.trim() || pendingImages.length > 0) && !loading ? 'var(--accent)' : 'var(--bg-hover)',
                 border: 'none',
                 borderRadius: 6,
                 width: 32,
@@ -620,21 +661,21 @@ export default function Chat({ activeObjective, transcriptSummary, activeRepos, 
                 alignItems: 'center',
                 justifyContent: 'center',
                 flexShrink: 0,
-                cursor: input.trim() && !loading ? 'pointer' : 'not-allowed',
+                cursor: (input.trim() || pendingImages.length > 0) && !loading ? 'pointer' : 'not-allowed',
                 transition: 'background 0.15s',
               }}
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
                 <path
                   d="M22 2L11 13"
-                  stroke={input.trim() && !loading ? '#000' : 'var(--text-dim)'}
+                  stroke={(input.trim() || pendingImages.length > 0) && !loading ? '#000' : 'var(--text-dim)'}
                   strokeWidth="2"
                   strokeLinecap="round"
                   strokeLinejoin="round"
                 />
                 <path
                   d="M22 2L15 22L11 13L2 9L22 2Z"
-                  stroke={input.trim() && !loading ? '#000' : 'var(--text-dim)'}
+                  stroke={(input.trim() || pendingImages.length > 0) && !loading ? '#000' : 'var(--text-dim)'}
                   strokeWidth="2"
                   strokeLinecap="round"
                   strokeLinejoin="round"
