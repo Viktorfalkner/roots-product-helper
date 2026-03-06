@@ -108,13 +108,10 @@ const MODELS = [
   { id: 'claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5' },
 ];
 
-export default function Chat({ activeObjective, transcriptSummary, activeRepos, sidebarFigmaLinks, pendingPrd, onPrdSent, onRequestTranscriptPanel, activeEpic, onEpicCreated, onStoryCreated }) {
-  const [messages, setMessages] = useState([]);
+export default function Chat({ activeObjective, transcriptSummary, activeRepos, sidebarFigmaLinks, pendingPrd, onPrdSent, onRequestTranscriptPanel, activeEpic, onEpicCreated, onStoryCreated, messages, setMessages, model, setModel, chatFigmaLinks, setChatFigmaLinks }) {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [model, setModel] = useState('claude-opus-4-6');
-  const [figmaLinks, setFigmaLinks] = useState([]);
   const [pendingModel, setPendingModel] = useState(null);
   const [pendingImages, setPendingImages] = useState([]); // [{base64, mediaType}]
   const bottomRef = useRef(null);
@@ -164,7 +161,7 @@ export default function Chat({ activeObjective, transcriptSummary, activeRepos, 
     // Accumulate any Figma URLs from this message
     const newFigmaUrls = extractFigmaUrls(userMessage);
     if (newFigmaUrls.length > 0) {
-      setFigmaLinks((prev) => {
+      setChatFigmaLinks((prev) => {
         const existing = new Set(prev.map((l) => l.url));
         const additions = newFigmaUrls.filter((u) => !existing.has(u)).map((u) => ({ url: u }));
         return [...prev, ...additions];
@@ -419,7 +416,7 @@ export default function Chat({ activeObjective, transcriptSummary, activeRepos, 
                 onStoryCreated={onStoryCreated}
                 figmaLinks={[
                   ...(sidebarFigmaLinks || []),
-                  ...figmaLinks.filter((l) => !(sidebarFigmaLinks || []).some((s) => s.url === l.url)),
+                  ...(chatFigmaLinks || []).filter((l) => !(sidebarFigmaLinks || []).some((s) => s.url === l.url)),
                 ]}
               />
             ))}

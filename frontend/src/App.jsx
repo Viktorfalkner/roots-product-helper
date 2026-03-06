@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import Chat from './components/Chat.jsx';
 import ContextBadge from './components/ContextBadge.jsx';
+import ChatHistoryPanel from './components/ChatHistoryPanel.jsx';
+import { listChats, getChat, saveChat, updateChat, deleteChat } from './lib/chatHistory.js';
 
 function parseObjectiveId(input) {
   const trimmed = input.trim();
@@ -442,6 +444,15 @@ export default function App() {
   const [prdPasteInput, setPrdPasteInput] = useState('');
   const prdFileInputRef = useRef(null);
 
+  // Lifted from Chat.jsx
+  const [messages, setMessages] = useState([]);
+  const [model, setModel] = useState('claude-opus-4-6');
+  const [chatFigmaLinks, setChatFigmaLinks] = useState([]);
+
+  // Chat history
+  const [currentChatId, setCurrentChatId] = useState(null);
+  const [chatHistory, setChatHistory] = useState(() => listChats());
+
   const transcriptSummary =
     transcripts.length > 0
       ? transcripts
@@ -461,6 +472,95 @@ export default function App() {
   useEffect(() => {
     setActiveStory(null);
   }, [activeEpic]);
+
+  // --- Chat history helpers ---
+  function deriveName(messages, objective) {
+    if (objective?.name) return objective.name.slice(0, 50).trim();
+    const firstUser = messages.find((m) => m.role === 'user');
+    const text = typeof firstUser?.content === 'string' ? firstUser.content : '';
+    if (!text) return 'Untitled chat';
+    const clean = text.replace(/\s+/g, ' ').trim();
+    return clean.slice(0, 50).replace(/\s\S*$/, '').trim() || 'Untitled chat';
+  }
+
+  function stripImages(msgs) {
+    return msgs.map(({ images: _images, ...rest }) => rest);
+  }
+
+  function buildChatContext() {
+    return {
+      activeObjective: activeObjective || null,
+      activeEpic: activeEpic || null,
+      activeRepos: activeRepos || [],
+      transcripts: transcripts || [],
+      figmaLinks: chatFigmaLinks || [],
+      sidebarFigmaLinks: figmaLinks || [],
+      prdText: prdText || '',
+      model,
+    };
+  }
+
+  // Auto-save after every completed AI response
+  useEffect(() => {
+    const last = messages[messages.length - 1];
+    if (!last || last.role !== 'assistant' || messages.length < 2) return;
+
+    const now = new Date().toISOString();
+    const context = buildChatContext();
+
+    if (!currentChatId) {
+      const id = crypto.randomUUID();
+      const name = deriveName(messages, activeObjective);
+      setCurrentChatId(id);
+      saveChat({ id, name, createdAt: now, updatedAt: now, starred: false, messages: stripImages(messages), context });
+    } else {
+      updateChat(currentChatId, { updatedAt: now, messages: stripImages(messages), context });
+    }
+    setChatHistory(listChats());
+  }, [messages]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function handleNewChat() {
+    if (messages.length > 0 && !currentChatId) {
+      const now = new Date().toISOString();
+      const id = crypto.randomUUID();
+      const name = deriveName(messages, activeObjective);
+      saveChat({ id, name, createdAt: now, updatedAt: now, starred: false, messages: stripImages(messages), context: buildChatContext() });
+      setChatHistory(listChats());
+    }
+    setMessages([]);
+    setModel('claude-opus-4-6');
+    setChatFigmaLinks([]);
+    setCurrentChatId(null);
+    setSessionKey((k) => k + 1);
+  }
+
+  function handleRestoreChat(chatId) {
+    const chat = getChat(chatId);
+    if (!chat) return;
+    setMessages(chat.messages || []);
+    setModel(chat.context?.model || 'claude-opus-4-6');
+    setChatFigmaLinks(chat.context?.figmaLinks || []);
+    setCurrentChatId(chatId);
+    if (chat.context?.activeObjective) setActiveObjective(chat.context.activeObjective);
+    if (chat.context?.activeEpic) setActiveEpic(chat.context.activeEpic);
+    setActiveRepos(chat.context?.activeRepos || []);
+    setTranscripts(chat.context?.transcripts || []);
+    setFigmaLinks(chat.context?.sidebarFigmaLinks || []);
+    if (chat.context?.prdText) setPrdText(chat.context.prdText);
+    setSessionKey((k) => k + 1);
+  }
+
+  function handleRenameChat(id, name) {
+    updateChat(id, { name });
+    setChatHistory(listChats());
+  }
+
+  function handleStarChat(id) {
+    const chat = getChat(id);
+    if (!chat) return;
+    updateChat(id, { starred: !chat.starred });
+    setChatHistory(listChats());
+  }
 
   async function fetchContextStatus() {
     try {
@@ -633,7 +733,7 @@ export default function App() {
             </div>
           </div>
           <button
-            onClick={() => setSessionKey((k) => k + 1)}
+            onClick={handleNewChat}
             title="New chat — clears conversation history. Active objective and transcript stay loaded."
             style={{
               background: 'none',
@@ -657,6 +757,20 @@ export default function App() {
             New chat
           </button>
         </div>
+
+        {/* Chat History */}
+        <ChatHistoryPanel
+          chats={chatHistory}
+          currentChatId={currentChatId}
+          onRestore={handleRestoreChat}
+          onRename={handleRenameChat}
+          onStar={handleStarChat}
+          onDelete={(id) => {
+            deleteChat(id);
+            setChatHistory(listChats());
+            if (id === currentChatId) handleNewChat();
+          }}
+        />
 
         {/* Context Badge */}
         <div>
@@ -1548,6 +1662,12 @@ export default function App() {
           activeEpic={activeEpic}
           onEpicCreated={setActiveEpic}
           onStoryCreated={setActiveStory}
+          messages={messages}
+          setMessages={setMessages}
+          model={model}
+          setModel={setModel}
+          chatFigmaLinks={chatFigmaLinks}
+          setChatFigmaLinks={setChatFigmaLinks}
         />
       </div>
     </div>
