@@ -10,6 +10,24 @@ async function githubRequest(path) {
   return res.json();
 }
 
+export async function listUserRepos() {
+  const token = getToken();
+  if (!token) throw new Error('No GITHUB_TOKEN configured');
+  const all = [];
+  let page = 1;
+  while (page <= 3) {
+    const batch = await githubRequest(
+      `/user/repos?per_page=100&sort=updated&affiliation=owner,collaborator,organization_member&page=${page}`
+    );
+    for (const r of batch) {
+      all.push({ full_name: r.full_name, owner: r.owner.login, repo: r.name, description: r.description || null, private: r.private });
+    }
+    if (batch.length < 100) break;
+    page++;
+  }
+  return all;
+}
+
 export async function getRepoContext(owner, repo) {
   const [repoData, prs, issues, readmeData] = await Promise.all([
     githubRequest(`/repos/${owner}/${repo}`),

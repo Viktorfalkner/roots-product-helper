@@ -14,7 +14,7 @@ dotenv.config({ path: resolve(ROOT, '.env') });
 import { chat, summarizeTranscript } from './claude.js';
 import { extractFigmaLinks, parseFigmaLinks, fetchFigmaImages, fetchFigmaNodeContext } from './figma.js';
 import { loadCache, getCacheStatus } from './context.js';
-import { getRepoContext } from './github.js';
+import { getRepoContext, listUserRepos } from './github.js';
 import {
   getObjectiveWithContext,
   getObjective,
@@ -131,6 +131,14 @@ app.get('/api/repo/:owner/:repo', async (req, res) => {
     res.json(data);
   } catch (err) {
     console.error('Repo fetch error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/repos', async (_req, res) => {
+  try {
+    res.json({ repos: await listUserRepos() });
+  } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });

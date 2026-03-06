@@ -27,14 +27,6 @@ function parseFigmaInput(input) {
   return { url: trimmed, label };
 }
 
-function parseRepoInput(input) {
-  const trimmed = input.trim();
-  const urlMatch = trimmed.match(/github\.com\/([^/]+)\/([^/\s]+)/);
-  if (urlMatch) return { owner: urlMatch[1], repo: urlMatch[2].replace(/\.git$/, '') };
-  const parts = trimmed.split('/');
-  if (parts.length === 2 && parts[0] && parts[1]) return { owner: parts[0], repo: parts[1] };
-  return null;
-}
 
 function MilestoneRow({ keyResult }) {
   return (
@@ -411,6 +403,146 @@ function ReferenceLibrary() {
   );
 }
 
+function RepoPicker({ repos, loading, error, search, onSearch, onSelect, onClose, alreadyLoaded, starred, onToggleStar }) {
+  const filtered = repos
+    ? repos
+        .filter((r) => {
+          const q = search.toLowerCase();
+          return r.full_name.toLowerCase().includes(q) || (r.description || '').toLowerCase().includes(q);
+        })
+        .sort((a, b) => {
+          const aStarred = starred.includes(a.full_name) ? 0 : 1;
+          const bStarred = starred.includes(b.full_name) ? 0 : 1;
+          return aStarred - bStarred;
+        })
+    : [];
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          background: 'var(--bg-elevated)',
+          border: '1px solid var(--border)',
+          borderRadius: 'var(--radius)',
+          width: 480,
+          maxHeight: '70vh',
+          display: 'flex',
+          flexDirection: 'column',
+          boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+        }}
+      >
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'center', padding: '12px 16px', borderBottom: '1px solid var(--border-subtle)' }}>
+          <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>Select a repository</span>
+          <button
+            onClick={onClose}
+            style={{ background: 'none', border: 'none', color: 'var(--text-dim)', fontSize: 18, cursor: 'pointer', lineHeight: 1, padding: '0 2px' }}
+          >
+            ×
+          </button>
+        </div>
+
+        {/* Search */}
+        <div style={{ padding: '10px 16px', borderBottom: '1px solid var(--border-subtle)' }}>
+          <input
+            autoFocus
+            value={search}
+            onChange={(e) => onSearch(e.target.value)}
+            placeholder="Search repositories..."
+            style={{
+              width: '100%',
+              boxSizing: 'border-box',
+              background: 'var(--bg)',
+              border: '1px solid var(--border)',
+              borderRadius: 'var(--radius-sm)',
+              color: 'var(--text)',
+              fontSize: 13,
+              padding: '6px 10px',
+              outline: 'none',
+            }}
+          />
+        </div>
+
+        {/* List */}
+        <div style={{ overflowY: 'auto', flex: 1 }}>
+          {loading && (
+            <div style={{ padding: 20, textAlign: 'center', color: 'var(--text-dim)', fontSize: 13 }}>Loading repos...</div>
+          )}
+          {error && (
+            <div style={{ padding: 20, textAlign: 'center', color: 'var(--red)', fontSize: 13 }}>{error}</div>
+          )}
+          {!loading && !error && filtered.length === 0 && (
+            <div style={{ padding: 20, textAlign: 'center', color: 'var(--text-dim)', fontSize: 13 }}>No repositories found</div>
+          )}
+          {filtered.map((r, i) => {
+            const loaded = alreadyLoaded.some((x) => x.owner === r.owner && x.repo === r.repo);
+            const isStarred = starred.includes(r.full_name);
+            const prevStarred = i > 0 && starred.includes(filtered[i - 1].full_name);
+            const showDivider = !isStarred && prevStarred && starred.length > 0 && !search;
+            return (
+              <div key={r.full_name}>
+                {showDivider && (
+                  <div style={{ height: 1, background: 'var(--border)', margin: '0 16px' }} />
+                )}
+                <div
+                  onClick={() => !loaded && onSelect(r.owner, r.repo)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 10,
+                    padding: '9px 16px',
+                    borderBottom: '1px solid var(--border-subtle)',
+                    cursor: loaded ? 'default' : 'pointer',
+                    opacity: loaded ? 0.5 : 1,
+                  }}
+                  onMouseEnter={(e) => { if (!loaded) e.currentTarget.style.background = 'var(--bg-hover, var(--bg))'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = ''; }}
+                >
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onToggleStar(r.full_name); }}
+                    title={isStarred ? 'Unstar' : 'Star'}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      padding: '0 2px',
+                      fontSize: 14,
+                      lineHeight: 1,
+                      color: isStarred ? '#f5c518' : 'var(--text-dim)',
+                      flexShrink: 0,
+                    }}
+                  >
+                    {isStarred ? '★' : '☆'}
+                  </button>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, color: 'var(--text)', fontWeight: 500 }}>{r.full_name}</div>
+                    {r.description && (
+                      <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.description}</div>
+                    )}
+                  </div>
+                  {r.private && (
+                    <span style={{ fontSize: 10, color: 'var(--text-dim)', border: '1px solid var(--border)', borderRadius: 3, padding: '1px 5px', flexShrink: 0 }}>private</span>
+                  )}
+                  {loaded && (
+                    <span style={{ fontSize: 10, color: 'var(--accent)', background: 'var(--accent-bg)', borderRadius: 3, padding: '1px 5px', flexShrink: 0, fontWeight: 600 }}>loaded</span>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   const [contextStatus, setContextStatus] = useState(null);
   const [sessionKey, setSessionKey] = useState(0);
@@ -421,10 +553,29 @@ export default function App() {
   const [loadingObjective, setLoadingObjective] = useState(false);
   const [objectiveError, setObjectiveError] = useState(null);
   const [activeRepos, setActiveRepos] = useState([]);
-  const [repoInput, setRepoInput] = useState('');
   const [repoExpanded, setRepoExpanded] = useState(false);
   const [loadingRepo, setLoadingRepo] = useState(false);
   const [repoError, setRepoError] = useState(null);
+  const [repoPickerOpen, setRepoPickerOpen] = useState(false);
+  const [repoPickerList, setRepoPickerList] = useState(null);
+  const [repoPickerLoading, setRepoPickerLoading] = useState(false);
+  const [repoPickerError, setRepoPickerError] = useState(null);
+  const [repoPickerSearch, setRepoPickerSearch] = useState('');
+  const [starredRepos, setStarredRepos] = useState(() => {
+    try {
+      const saved = localStorage.getItem('starredRepos');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return ['invest-with-roots/roots', 'invest-with-roots/bloom', 'invest-with-roots/grove-ui'];
+  });
+
+  function toggleStarRepo(full_name) {
+    setStarredRepos((prev) => {
+      const next = prev.includes(full_name) ? prev.filter((x) => x !== full_name) : [...prev, full_name];
+      localStorage.setItem('starredRepos', JSON.stringify(next));
+      return next;
+    });
+  }
   const [figmaLinks, setFigmaLinks] = useState([]);
   const [figmaInput, setFigmaInput] = useState('');
   const [figmaExpanded, setFigmaExpanded] = useState(false);
@@ -610,24 +761,39 @@ export default function App() {
     }
   }
 
-  async function handleLoadRepo() {
-    const parsed = parseRepoInput(repoInput);
-    if (!parsed) { setRepoError('Enter a GitHub URL or owner/repo'); return; }
-    if (activeRepos.some((r) => r.owner === parsed.owner && r.repo === parsed.repo)) {
-      setRepoError('Already loaded'); return;
-    }
+  async function handleLoadRepo(owner, repo) {
+    if (activeRepos.some((r) => r.owner === owner && r.repo === repo)) return;
     setLoadingRepo(true);
     setRepoError(null);
+    setRepoPickerOpen(false);
     try {
-      const res = await fetch(`/api/repo/${parsed.owner}/${parsed.repo}`);
+      const res = await fetch(`/api/repo/${owner}/${repo}`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to load repo');
       setActiveRepos((prev) => [...prev, data]);
-      setRepoInput('');
     } catch (err) {
       setRepoError(err.message);
     } finally {
       setLoadingRepo(false);
+    }
+  }
+
+  async function openRepoPicker() {
+    setRepoPickerOpen(true);
+    setRepoPickerSearch('');
+    if (repoPickerList !== null) return;
+    setRepoPickerLoading(true);
+    setRepoPickerError(null);
+    try {
+      const res = await fetch('/api/repos');
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed');
+      setRepoPickerList(data.repos);
+    } catch (err) {
+      setRepoPickerError(err.message);
+      setRepoPickerList([]);
+    } finally {
+      setRepoPickerLoading(false);
     }
   }
 
@@ -690,6 +856,7 @@ export default function App() {
   }
 
   return (
+    <>
     <div style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
       {/* Sidebar */}
       <div
@@ -1595,39 +1762,22 @@ export default function App() {
                 </div>
               )}
 
-              <div style={{ display: 'flex', gap: 6 }}>
-                <input
-                  value={repoInput}
-                  onChange={(e) => { setRepoInput(e.target.value); setRepoError(null); }}
-                  onKeyDown={(e) => e.key === 'Enter' && handleLoadRepo()}
-                  placeholder="owner/repo or GitHub URL"
-                  style={{
-                    flex: 1,
-                    background: 'var(--bg-elevated)',
-                    border: `1px solid ${repoError ? 'var(--red)' : 'var(--border)'}`,
-                    borderRadius: 'var(--radius-sm)',
-                    color: 'var(--text)',
-                    fontSize: 12,
-                    padding: '4px 8px',
-                    outline: 'none',
-                  }}
-                />
-                <button
-                  onClick={handleLoadRepo}
-                  disabled={loadingRepo || !repoInput.trim()}
-                  style={{
-                    background: 'var(--bg-elevated)',
-                    border: '1px solid var(--border)',
-                    borderRadius: 'var(--radius-sm)',
-                    color: loadingRepo ? 'var(--text-dim)' : 'var(--text-muted)',
-                    fontSize: 12,
-                    padding: '4px 10px',
-                    cursor: loadingRepo ? 'not-allowed' : 'pointer',
-                  }}
-                >
-                  {loadingRepo ? '...' : 'Load'}
-                </button>
-              </div>
+              <button
+                onClick={openRepoPicker}
+                disabled={loadingRepo}
+                style={{
+                  background: 'var(--bg-elevated)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 'var(--radius-sm)',
+                  color: loadingRepo ? 'var(--text-dim)' : 'var(--text-muted)',
+                  fontSize: 12,
+                  padding: '4px 10px',
+                  cursor: loadingRepo ? 'not-allowed' : 'pointer',
+                  width: '100%',
+                }}
+              >
+                {loadingRepo ? 'Loading...' : '+ Add repository'}
+              </button>
               {repoError && (
                 <div style={{ color: 'var(--red)', fontSize: 11, marginTop: 4 }}>
                   {repoError}
@@ -1671,5 +1821,20 @@ export default function App() {
         />
       </div>
     </div>
+    {repoPickerOpen && (
+      <RepoPicker
+        repos={repoPickerList}
+        loading={repoPickerLoading}
+        error={repoPickerError}
+        search={repoPickerSearch}
+        onSearch={setRepoPickerSearch}
+        onSelect={handleLoadRepo}
+        onClose={() => setRepoPickerOpen(false)}
+        alreadyLoaded={activeRepos}
+        starred={starredRepos}
+        onToggleStar={toggleStarRepo}
+      />
+    )}
+    </>
   );
 }
