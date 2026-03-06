@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import Chat from './components/Chat.jsx';
 import ContextBadge from './components/ContextBadge.jsx';
+import SidebarButton from './components/SidebarButton.jsx';
 import ChatHistoryPanel from './components/ChatHistoryPanel.jsx';
 import { listChats, getChat, saveChat, updateChat, deleteChat } from './lib/chatHistory.js';
 import Settings from './components/Settings.jsx';
@@ -348,20 +349,9 @@ function ReferenceLibrary() {
                 </div>
                 <div style={{ fontSize: 10, color: 'var(--text-dim)', marginTop: 1 }}>#{id}</div>
               </div>
-              <button
-                onClick={() => handleRemove(id)}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: 'var(--text-dim)',
-                  fontSize: 11,
-                  cursor: 'pointer',
-                  flexShrink: 0,
-                  paddingTop: 2,
-                }}
-              >
+              <SidebarButton onClick={() => handleRemove(id)} size="sm" style={{ flexShrink: 0 }}>
                 Remove
-              </button>
+              </SidebarButton>
             </div>
           ))}
 
@@ -382,21 +372,9 @@ function ReferenceLibrary() {
                 outline: 'none',
               }}
             />
-            <button
-              onClick={handleAdd}
-              disabled={adding || !addInput.trim()}
-              style={{
-                background: 'var(--bg-elevated)',
-                border: '1px solid var(--border)',
-                borderRadius: 'var(--radius-sm)',
-                color: adding ? 'var(--text-dim)' : 'var(--text-muted)',
-                fontSize: 12,
-                padding: '4px 10px',
-                cursor: adding ? 'not-allowed' : 'pointer',
-              }}
-            >
+            <SidebarButton onClick={handleAdd} disabled={adding || !addInput.trim()}>
               {adding ? '...' : 'Add'}
-            </button>
+            </SidebarButton>
           </div>
         </div>
       )}
@@ -745,6 +723,21 @@ export default function App() {
     }
   }
 
+  function handleClearContext() {
+    setObjectiveInput('');
+    setActiveObjective(null);
+    setActiveEpic(null);
+    setActiveStory(null);
+    setActiveRepos([]);
+    setFigmaLinks([]);
+    setFigmaInput('');
+    setTranscripts([]);
+    setPrdText('');
+    setPrdFileName(null);
+    setPendingPrd(null);
+    setChatFigmaLinks([]);
+  }
+
   async function handleLoadObjective() {
     const id = parseObjectiveId(objectiveInput);
     if (!id) {
@@ -906,30 +899,9 @@ export default function App() {
               <div style={{ fontSize: 10, color: 'var(--text-dim)' }}>Roots · AI Planning</div>
             </div>
           </div>
-          <button
-            onClick={handleNewChat}
-            title="New chat — clears conversation history. Active objective and transcript stay loaded."
-            style={{
-              background: 'none',
-              border: '1px solid var(--border)',
-              borderRadius: 'var(--radius-sm)',
-              color: 'var(--text-dim)',
-              fontSize: 11,
-              padding: '3px 8px',
-              cursor: 'pointer',
-              transition: 'all 0.15s',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.borderColor = 'var(--text-dim)';
-              e.currentTarget.style.color = 'var(--text-muted)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.borderColor = 'var(--border)';
-              e.currentTarget.style.color = 'var(--text-dim)';
-            }}
-          >
+          <SidebarButton onClick={handleNewChat} size="sm" title="New chat — clears conversation history. Active objective and transcript stay loaded.">
             New chat
-          </button>
+          </SidebarButton>
         </div>
 
         {/* Chat History */}
@@ -960,7 +932,7 @@ export default function App() {
           >
             Context
           </div>
-          <ContextBadge status={contextStatus} onRefresh={handleRefresh} />
+          <ContextBadge status={contextStatus} onRefresh={handleRefresh} onClear={handleClearContext} />
         </div>
 
         {/* PRD */}
@@ -1094,22 +1066,9 @@ export default function App() {
                   </span>
                 </div>
               ) : (
-                <button
-                  onClick={() => prdFileInputRef.current?.click()}
-                  style={{
-                    background: 'none',
-                    border: '1px solid var(--border)',
-                    borderRadius: 'var(--radius-sm)',
-                    color: 'var(--text-dim)',
-                    fontSize: 11,
-                    padding: '4px 10px',
-                    cursor: 'pointer',
-                    width: '100%',
-                    marginBottom: 6,
-                  }}
-                >
+                <SidebarButton onClick={() => prdFileInputRef.current?.click()} fullWidth style={{ marginBottom: 6 }}>
                   + Replace file
-                </button>
+                </SidebarButton>
               )}
 
               {/* Paste toggle */}
@@ -1178,20 +1137,9 @@ export default function App() {
                     >
                       Load
                     </button>
-                    <button
-                      onClick={() => { setPrdShowPaste(false); setPrdPasteInput(''); }}
-                      style={{
-                        background: 'none',
-                        border: '1px solid var(--border)',
-                        borderRadius: 'var(--radius-sm)',
-                        color: 'var(--text-dim)',
-                        fontSize: 12,
-                        padding: '5px 10px',
-                        cursor: 'pointer',
-                      }}
-                    >
+                    <SidebarButton onClick={() => { setPrdShowPaste(false); setPrdPasteInput(''); }}>
                       Cancel
-                    </button>
+                    </SidebarButton>
                   </div>
                 </div>
               )}
@@ -1261,22 +1209,12 @@ export default function App() {
                     outline: 'none',
                   }}
                 />
-                <button
+                <SidebarButton
                   onClick={handleLoadObjective}
                   disabled={loadingObjective || !objectiveInput.trim()}
-                  style={{
-                    background: 'var(--bg-elevated)',
-                    border: '1px solid var(--border)',
-                    borderRadius: 'var(--radius-sm)',
-                    color: loadingObjective ? 'var(--text-dim)' : 'var(--text-muted)',
-                    fontSize: 12,
-                    padding: '6px 10px',
-                    cursor: loadingObjective ? 'not-allowed' : 'pointer',
-                    whiteSpace: 'nowrap',
-                  }}
                 >
                   {loadingObjective ? '...' : 'Load'}
-                </button>
+                </SidebarButton>
               </div>
               {objectiveError && (
                 <div style={{ color: 'var(--red)', fontSize: 11, marginTop: 4 }}>
@@ -1437,22 +1375,9 @@ export default function App() {
                   </span>
                 </div>
               ) : (
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  style={{
-                    background: 'none',
-                    border: '1px solid var(--border)',
-                    borderRadius: 'var(--radius-sm)',
-                    color: 'var(--text-dim)',
-                    fontSize: 11,
-                    padding: '4px 10px',
-                    cursor: 'pointer',
-                    width: '100%',
-                    marginBottom: 6,
-                  }}
-                >
+                <SidebarButton onClick={() => fileInputRef.current?.click()} fullWidth style={{ marginBottom: 6 }}>
                   + Add another
-                </button>
+                </SidebarButton>
               )}
 
               {/* Paste toggle */}
@@ -1515,20 +1440,9 @@ export default function App() {
                     >
                       Load
                     </button>
-                    <button
-                      onClick={() => { setShowPaste(false); setPasteText(''); }}
-                      style={{
-                        background: 'none',
-                        border: '1px solid var(--border)',
-                        borderRadius: 'var(--radius-sm)',
-                        color: 'var(--text-dim)',
-                        fontSize: 12,
-                        padding: '5px 10px',
-                        cursor: 'pointer',
-                      }}
-                    >
+                    <SidebarButton onClick={() => { setShowPaste(false); setPasteText(''); }}>
                       Cancel
-                    </button>
+                    </SidebarButton>
                   </div>
                 </div>
               )}
@@ -1649,21 +1563,9 @@ export default function App() {
                     outline: 'none',
                   }}
                 />
-                <button
-                  onClick={handleAddFigmaLink}
-                  disabled={!figmaInput.trim()}
-                  style={{
-                    background: 'var(--bg-elevated)',
-                    border: '1px solid var(--border)',
-                    borderRadius: 'var(--radius-sm)',
-                    color: figmaInput.trim() ? 'var(--text-muted)' : 'var(--text-dim)',
-                    fontSize: 12,
-                    padding: '4px 10px',
-                    cursor: figmaInput.trim() ? 'pointer' : 'not-allowed',
-                  }}
-                >
+                <SidebarButton onClick={handleAddFigmaLink} disabled={!figmaInput.trim()}>
                   Add
-                </button>
+                </SidebarButton>
               </div>
               {figmaError && (
                 <div style={{ color: 'var(--red)', fontSize: 11, marginTop: 4 }}>
@@ -1769,22 +1671,9 @@ export default function App() {
                 </div>
               )}
 
-              <button
-                onClick={openRepoPicker}
-                disabled={loadingRepo}
-                style={{
-                  background: 'var(--bg-elevated)',
-                  border: '1px solid var(--border)',
-                  borderRadius: 'var(--radius-sm)',
-                  color: loadingRepo ? 'var(--text-dim)' : 'var(--text-muted)',
-                  fontSize: 12,
-                  padding: '4px 10px',
-                  cursor: loadingRepo ? 'not-allowed' : 'pointer',
-                  width: '100%',
-                }}
-              >
+              <SidebarButton onClick={openRepoPicker} disabled={loadingRepo} fullWidth>
                 {loadingRepo ? 'Loading...' : '+ Add repository'}
-              </button>
+              </SidebarButton>
               {repoError && (
                 <div style={{ color: 'var(--red)', fontSize: 11, marginTop: 4 }}>
                   {repoError}

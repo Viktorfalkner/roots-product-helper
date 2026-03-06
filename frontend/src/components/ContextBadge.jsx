@@ -1,6 +1,7 @@
 import { useState } from 'react';
+import SidebarButton from './SidebarButton.jsx';
 
-export default function ContextBadge({ status, onRefresh }) {
+export default function ContextBadge({ status, onRefresh, onClear }) {
   const [refreshing, setRefreshing] = useState(false);
 
   async function handleRefresh() {
@@ -15,11 +16,13 @@ export default function ContextBadge({ status, onRefresh }) {
   function formatAge(timestamp) {
     if (!timestamp) return '';
     const diff = Date.now() - new Date(timestamp).getTime();
-    const hours = Math.floor(diff / (1000 * 60 * 60));
+    const mins = Math.floor(diff / 60000);
+    const hours = Math.floor(mins / 60);
     const days = Math.floor(hours / 24);
-    if (days > 0) return `${days}d ago`;
-    if (hours > 0) return `${hours}h ago`;
-    return 'just now';
+    if (days > 0) return `${days}d`;
+    if (hours > 0) return `${hours}h`;
+    if (mins > 0) return `${mins}m`;
+    return '0m';
   }
 
   const isGood = status?.exists && !status?.is_stale;
@@ -27,14 +30,10 @@ export default function ContextBadge({ status, onRefresh }) {
   const isRed = !status?.exists;
 
   const dotColor = isGood ? 'var(--accent)' : isAmber ? 'var(--amber)' : 'var(--red)';
-  const label = isRed
-    ? 'No cache'
-    : isAmber
-    ? 'Stale'
-    : 'Fresh';
+  const label = isRed ? 'No cache' : isAmber ? 'Stale' : 'Fresh';
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
         <div
           style={{
@@ -54,28 +53,26 @@ export default function ContextBadge({ status, onRefresh }) {
           )}
         </span>
       </div>
-      <button
-        onClick={handleRefresh}
-        disabled={refreshing}
-        style={{
-          background: 'none',
-          border: '1px solid var(--border)',
-          borderRadius: 'var(--radius-sm)',
-          color: refreshing ? 'var(--text-dim)' : 'var(--text-muted)',
-          fontSize: 11,
-          padding: '2px 8px',
-          cursor: refreshing ? 'not-allowed' : 'pointer',
-          transition: 'all 0.15s',
-        }}
-        onMouseEnter={(e) => {
-          if (!refreshing) e.target.style.borderColor = 'var(--text-dim)';
-        }}
-        onMouseLeave={(e) => {
-          e.target.style.borderColor = 'var(--border)';
-        }}
-      >
-        {refreshing ? 'Refreshing...' : 'Refresh'}
-      </button>
+      <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+        <SidebarButton
+          variant="danger"
+          size="sm"
+          onClick={onClear}
+          title="Clear all loaded context — objective, epic, repos, Figma links, transcripts, and PRD. Chat messages are kept."
+        >
+          Clear
+        </SidebarButton>
+        <SidebarButton
+          variant="primary"
+          size="sm"
+          onClick={handleRefresh}
+          disabled={refreshing}
+          title="Re-fetch team context from Shortcut and refresh the active objective."
+          style={{ minWidth: 58, textAlign: 'center' }}
+        >
+          {refreshing ? 'Reloading…' : 'Reload'}
+        </SidebarButton>
+      </div>
     </div>
   );
 }
