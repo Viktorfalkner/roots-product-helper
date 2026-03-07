@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { reset as resetGuide } from '../lib/guidePreference.js';
 
 const FIELDS = [
   {
@@ -39,11 +40,12 @@ const FIELDS = [
   },
 ];
 
-export default function Settings({ onClose, initialStatus }) {
+export default function Settings({ onClose, initialStatus, onShowGuide }) {
   const [loaded, setLoaded] = useState(null);
   const [values, setValues] = useState({});
   const [saving, setSaving] = useState(false);
   const [savedMsg, setSavedMsg] = useState('');
+  const [resetMsg, setResetMsg] = useState('');
 
   useEffect(() => {
     if (initialStatus) {
@@ -135,6 +137,53 @@ export default function Settings({ onClose, initialStatus }) {
 
         {/* Fields */}
         <div style={{ overflowY: 'auto', flex: 1 }}>
+          {/* Guide & Onboarding */}
+          <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border-subtle)' }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', marginBottom: 3 }}>Guide &amp; Onboarding</div>
+            <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 10, lineHeight: 1.5 }}>
+              Reset the "don't show again" flag to see the getting started guide on next load.
+            </div>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <button
+                onClick={() => { onShowGuide?.(); }}
+                style={{
+                  background: 'var(--bg-surface)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 'var(--radius-sm)',
+                  color: 'var(--text-muted)',
+                  fontSize: 12,
+                  fontWeight: 500,
+                  padding: '5px 12px',
+                  cursor: 'pointer',
+                }}
+              >
+                Open guide
+              </button>
+              <button
+                onClick={() => {
+                  resetGuide();
+                  setResetMsg('Will show on next load.');
+                  setTimeout(() => setResetMsg(''), 3000);
+                }}
+                style={{
+                  background: 'var(--bg-surface)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 'var(--radius-sm)',
+                  color: 'var(--text-muted)',
+                  fontSize: 12,
+                  fontWeight: 500,
+                  padding: '5px 12px',
+                  cursor: 'pointer',
+                }}
+              >
+                Show on startup
+              </button>
+              {resetMsg && (
+                <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>{resetMsg}</span>
+              )}
+            </div>
+          </div>
+
           {FIELDS.map((f) => (
             <div
               key={f.key}

@@ -11,6 +11,8 @@ import StoryPanel from './components/StoryPanel.jsx';
 import ReferenceLibrary from './components/ReferenceLibrary.jsx';
 import RepoPicker from './components/RepoPicker.jsx';
 import CollapsibleSection from './components/CollapsibleSection.jsx';
+import UserGuide from './components/UserGuide.jsx';
+import { isDismissed, dismiss } from './lib/guidePreference.js';
 import { useObjectiveContext } from './hooks/useObjectiveContext.js';
 import { useRepositoryContext } from './hooks/useRepositoryContext.js';
 import { useTranscriptContext } from './hooks/useTranscriptContext.js';
@@ -22,6 +24,7 @@ export default function App() {
   const [contextStatus, setContextStatus] = useState(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsStatus, setSettingsStatus] = useState(null);
+  const [guideOpen, setGuideOpen] = useState(() => !isDismissed());
 
   // Chat message state lives here to avoid circular dep with buildChatContext
   const [messages, setMessages] = useState([]);
@@ -989,6 +992,13 @@ export default function App() {
       <Settings
         onClose={() => setSettingsOpen(false)}
         initialStatus={settingsStatus}
+        onShowGuide={() => { setSettingsOpen(false); setGuideOpen(true); }}
+      />
+    )}
+    {guideOpen && (
+      <UserGuide
+        onClose={() => setGuideOpen(false)}
+        onDismiss={() => { dismiss(); setGuideOpen(false); }}
       />
     )}
     {repoPickerOpen && (
