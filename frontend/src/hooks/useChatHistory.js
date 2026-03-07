@@ -25,7 +25,7 @@ function stripImages(msgs) {
  * @param {(chat: object) => void} params.onRestoreChat  - Called to restore state from a saved chat
  * @param {() => void}             params.onNewChat      - Called to reset messages/model/chatFigmaLinks
  */
-export function useChatHistory({ messages, buildContext, onRestoreChat, onNewChat }) {
+export function useChatHistory({ messages, buildContext, onRestoreChat, onNewChat, activeObjective }) {
   const [currentChatId, setCurrentChatId] = useState(null);
   const [chatHistory, setChatHistory] = useState(() => listChats());
   const [sessionKey, setSessionKey] = useState(0);
@@ -33,6 +33,16 @@ export function useChatHistory({ messages, buildContext, onRestoreChat, onNewCha
   // Ref so the auto-save effect always uses the latest buildContext
   const buildContextRef = useRef(buildContext);
   useEffect(() => { buildContextRef.current = buildContext; });
+
+  // When the active objective changes, rename the current chat if it was auto-named
+  useEffect(() => {
+    if (!currentChatId || !activeObjective?.name) return;
+    const chat = getChat(currentChatId);
+    if (!chat || !chat.autoNamed) return;
+    const name = activeObjective.name.slice(0, 60).trim();
+    updateChat(currentChatId, { name });
+    setChatHistory(listChats());
+  }, [activeObjective?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auto-save after every completed AI response
   useEffect(() => {
@@ -46,7 +56,7 @@ export function useChatHistory({ messages, buildContext, onRestoreChat, onNewCha
       const id = crypto.randomUUID();
       const name = deriveName(messages, context.activeObjective);
       setCurrentChatId(id);
-      saveChat({ id, name, createdAt: now, updatedAt: now, starred: false, messages: stripImages(messages), context });
+      saveChat({ id, name, autoNamed: true, createdAt: now, updatedAt: now, starred: false, messages: stripImages(messages), context });
     } else {
       updateChat(currentChatId, { updatedAt: now, messages: stripImages(messages), context });
     }
@@ -76,7 +86,7 @@ export function useChatHistory({ messages, buildContext, onRestoreChat, onNewCha
   }
 
   function handleRenameChat(id, name) {
-    updateChat(id, { name });
+    updateChat(id, { name, autoNamed: false });
     setChatHistory(listChats());
   }
 
@@ -96,4 +106,5 @@ export function useChatHistory({ messages, buildContext, onRestoreChat, onNewCha
     handleRenameChat,
     handleStarChat,
   };
+
 }

@@ -101,6 +101,7 @@ export default function App() {
     handleStarChat,
   } = useChatHistory({
     messages,
+    activeObjective,
     buildContext: buildChatContext,
     onNewChat: () => {
       setMessages([]);
