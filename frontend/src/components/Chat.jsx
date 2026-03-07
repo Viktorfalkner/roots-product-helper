@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import Message from './Message.jsx';
+import RootyThinking from './RootyThinking.jsx';
 import { extractFigmaUrls } from '../lib/figmaUtils.js';
 
 const CONTEXT_EPIC_RE = /<!--\s*context:epic\s+id:(\d+)\s*-->/;
@@ -101,6 +102,7 @@ const MODELS = [
 export default function Chat({ activeObjective, transcriptSummary, activeRepos, sidebarFigmaLinks, pendingPrd, onPrdSent, onRequestTranscriptPanel, activeEpic, onEpicCreated, onStoryCreated, onObjectiveLoaded, onObjectiveCreated, messages, setMessages, model, setModel, chatFigmaLinks, setChatFigmaLinks, prdText }) {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showRooty, setShowRooty] = useState(false);
   const [error, setError] = useState(null);
   const [pendingModel, setPendingModel] = useState(null);
   const [pendingImages, setPendingImages] = useState([]); // [{base64, mediaType}]
@@ -147,6 +149,7 @@ export default function Chat({ activeObjective, transcriptSummary, activeRepos, 
     const newMessages = [...messages, { role: 'user', content: userMessage, images: imagesToSend.length > 0 ? imagesToSend : undefined }];
     setMessages(newMessages);
     setLoading(true);
+    setShowRooty(true);
 
     // Accumulate any Figma URLs from this message
     const newFigmaUrls = extractFigmaUrls(userMessage);
@@ -350,7 +353,7 @@ export default function Chat({ activeObjective, transcriptSummary, activeRepos, 
   const isEmpty = messages.length === 0;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', position: 'relative' }}>
       {/* Messages */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '16px 0' }}>
         {isEmpty ? (
@@ -366,24 +369,7 @@ export default function Chat({ activeObjective, transcriptSummary, activeRepos, 
             }}
           >
             <div style={{ textAlign: 'center' }}>
-              <div
-                style={{
-                  width: 48,
-                  height: 48,
-                  borderRadius: '50%',
-                  background: 'var(--accent-bg)',
-                  border: '1px solid var(--accent)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: 20,
-                  color: 'var(--accent)',
-                  fontWeight: 700,
-                  margin: '0 auto 16px',
-                }}
-              >
-                R
-              </div>
+              <img src="/rooty.svg" alt="Rooty" style={{ width: 48, height: 48, borderRadius: '50%', margin: '0 auto 16px', display: 'block' }} />
               <h2 style={{ fontSize: 18, fontWeight: 600, color: 'var(--text)', marginBottom: 6 }}>
                 Roots Product Helper
               </h2>
@@ -457,45 +443,6 @@ export default function Chat({ activeObjective, transcriptSummary, activeRepos, 
                 ]}
               />
             ))}
-            {loading && !messages.some((m) => m.streaming) && (
-              <div style={{ padding: '0 16px', marginBottom: 16 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <div
-                    style={{
-                      width: 28,
-                      height: 28,
-                      borderRadius: '50%',
-                      background: 'var(--accent-bg)',
-                      border: '1px solid var(--accent)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontSize: 12,
-                      color: 'var(--accent)',
-                      fontWeight: 600,
-                      flexShrink: 0,
-                    }}
-                  >
-                    R
-                  </div>
-                  <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-                    {[0, 1, 2].map((i) => (
-                      <div
-                        key={i}
-                        style={{
-                          width: 6,
-                          height: 6,
-                          borderRadius: '50%',
-                          background: 'var(--accent)',
-                          opacity: 0.7,
-                          animation: `pulse 1.2s ease-in-out ${i * 0.2}s infinite`,
-                        }}
-                      />
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
             <div ref={bottomRef} />
           </>
         )}
@@ -799,10 +746,30 @@ export default function Chat({ activeObjective, transcriptSummary, activeRepos, 
         </p>
       </div>
 
+      {showRooty && <RootyThinking loading={loading} onDone={() => setShowRooty(false)} />}
+
       <style>{`
-        @keyframes pulse {
-          0%, 100% { opacity: 0.3; transform: scale(0.8); }
-          50% { opacity: 1; transform: scale(1); }
+        @keyframes rootyPoof {
+          0%   { opacity: 1; transform: scale(1) rotate(0deg); }
+          30%  { opacity: 0.9; transform: scale(1.35) rotate(-6deg); }
+          100% { opacity: 0; transform: scale(0.1) rotate(12deg); }
+        }
+        @keyframes rootyPopIn {
+          from { opacity: 0; transform: translateY(12px) scale(0.7); }
+          to   { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        @keyframes rootyFloat {
+          0%, 100% { transform: translateY(0); }
+          50%       { transform: translateY(-4px); }
+        }
+        @keyframes bubbleFadeIn {
+          from { opacity: 0; transform: translateY(4px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes messageFade {
+          0%, 10%   { opacity: 0; }
+          20%, 80%  { opacity: 1; }
+          90%, 100% { opacity: 0; }
         }
         .markdown-body { color: var(--text); font-size: 14px; line-height: 1.6; }
         .markdown-body h1, .markdown-body h2, .markdown-body h3, .markdown-body h4 {
