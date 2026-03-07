@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import StepFlow from './StepFlow.jsx';
 
 const TABS = [
   {
@@ -99,13 +100,8 @@ const TABS = [
         <p style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.7, margin: '0 0 10px 0' }}>
           Stories are the primary output. The recommended workflow:
         </p>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, margin: '0 0 12px 0', flexWrap: 'wrap' }}>
-          {['Load objective', 'Add context', 'Load / draft epic', 'Draft stories'].map((step, i, arr) => (
-            <>
-              <span key={step} style={{ fontSize: 11, fontWeight: 600, color: 'var(--accent)', background: 'rgba(74,222,128,0.08)', border: '1px solid rgba(74,222,128,0.3)', borderRadius: 4, padding: '4px 10px', whiteSpace: 'nowrap' }}>{step}</span>
-              {i < arr.length - 1 && <span key={`arrow-${i}`} style={{ fontSize: 12, color: 'var(--text-dim)', fontWeight: 300 }}>→</span>}
-            </>
-          ))}
+        <div style={{ margin: '0 0 12px 0' }}>
+          <StepFlow steps={['Load objective', 'Add context', 'Load / draft epic', 'Draft stories']} />
         </div>
         <ul style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.8, paddingLeft: 16, margin: '0 0 12px 0' }}>
           <li>Ask for stories one at a time — each one benefits from reviewing what came before</li>
@@ -175,14 +171,7 @@ const TABS = [
             <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', marginBottom: steps ? 6 : 2 }}>{title}</div>
             {steps && (
               <>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                  {steps.map((step, i) => (
-                    <span key={step} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                      <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--accent)', background: 'rgba(74,222,128,0.08)', border: '1px solid rgba(74,222,128,0.3)', borderRadius: 4, padding: '4px 10px', whiteSpace: 'nowrap' }}>{step}</span>
-                      {i < steps.length - 1 && <span style={{ fontSize: 12, color: 'var(--text-dim)', fontWeight: 300 }}>→</span>}
-                    </span>
-                  ))}
-                </div>
+                <StepFlow steps={steps} />
                 {note && <div style={{ fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.5, marginTop: 6, fontStyle: 'italic', whiteSpace: 'pre-line' }}>{note}</div>}
               </>
             )}
