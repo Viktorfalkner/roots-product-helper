@@ -98,7 +98,7 @@ const MODELS = [
   { id: 'claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5' },
 ];
 
-export default function Chat({ activeObjective, transcriptSummary, activeRepos, sidebarFigmaLinks, pendingPrd, onPrdSent, onRequestTranscriptPanel, activeEpic, onEpicCreated, onStoryCreated, onObjectiveLoaded, messages, setMessages, model, setModel, chatFigmaLinks, setChatFigmaLinks }) {
+export default function Chat({ activeObjective, transcriptSummary, activeRepos, sidebarFigmaLinks, pendingPrd, onPrdSent, onRequestTranscriptPanel, activeEpic, onEpicCreated, onStoryCreated, onObjectiveLoaded, messages, setMessages, model, setModel, chatFigmaLinks, setChatFigmaLinks, prdText }) {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -183,6 +183,7 @@ export default function Chat({ activeObjective, transcriptSummary, activeRepos, 
           active_epic: activeEpic || null,
           figma_urls: allFigmaUrls.length > 0 ? allFigmaUrls : undefined,
           pasted_images: imagesToSend.length > 0 ? imagesToSend : undefined,
+          prd_text: prdText || null,
         }),
         signal: controller.signal,
       });

@@ -99,8 +99,16 @@ ${list}`);
  * Dynamic context — changes per request (active objective, transcript summary).
  * Not cached — kept separate and small.
  */
-export function buildDynamicContext(activeObjective = null, transcriptSummary = null, activeRepos = [], activeEpic = null) {
+export function buildDynamicContext(activeObjective = null, transcriptSummary = null, activeRepos = [], activeEpic = null, prdText = null) {
   const sections = [];
+
+  if (prdText) {
+    sections.push(`## Loaded PRD
+
+The user has loaded the following Product Requirements Document. Use it as the source of truth for drafting objectives, milestones, epics, and stories. When asked to "draft an objective from the loaded PRD", produce a \`<!-- draft:objective -->\` card using this content.
+
+${prdText}`);
+  }
 
   if (transcriptSummary) {
     sections.push(`## Meeting Context

@@ -86,7 +86,7 @@ const ALLOWED_MODELS = new Set([
 ]);
 
 app.post('/api/chat', async (req, res) => {
-  const { messages, active_objective, transcript_summary, active_repos, model, active_epic, figma_urls, pasted_images } = req.body;
+  const { messages, active_objective, transcript_summary, active_repos, model, active_epic, figma_urls, pasted_images, prd_text } = req.body;
 
   if (!messages || !Array.isArray(messages)) {
     return res.status(400).json({ error: '`messages` array is required' });
@@ -123,7 +123,8 @@ app.post('/api/chat', async (req, res) => {
       selectedModel,
       active_epic || null,
       allImages,
-      figmaContexts
+      figmaContexts,
+      prd_text || null
     );
 
     stream.on('text', (text) => {

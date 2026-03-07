@@ -67,7 +67,6 @@ export default function App() {
     prdFileName, setPrdFileName,
     prdExpanded, setPrdExpanded,
     pendingPrd, setPendingPrd,
-    prdShowPaste, setPrdShowPaste,
     prdPasteInput, setPrdPasteInput,
     prdFileInputRef,
     handlePrdFileUpload, handleConvertPrd,
@@ -337,7 +336,7 @@ export default function App() {
                 </div>
               )}
 
-              {/* Drop zone (empty) or Replace button (loaded) */}
+              {/* Empty state: textarea + upload link. Loaded state: replace link. */}
               {!prdText ? (
                 <div
                   onDragOver={(e) => e.preventDefault()}
@@ -346,55 +345,11 @@ export default function App() {
                     const file = e.dataTransfer.files?.[0];
                     if (file) handlePrdFileUpload(file);
                   }}
-                  onClick={() => prdFileInputRef.current?.click()}
-                  style={{
-                    border: '1.5px dashed var(--border)',
-                    borderRadius: 'var(--radius-sm)',
-                    padding: '16px 8px',
-                    textAlign: 'center',
-                    cursor: 'pointer',
-                    color: 'var(--text-dim)',
-                    fontSize: 12,
-                    lineHeight: 1.5,
-                  }}
                 >
-                  Drop .txt / .md here
-                  <br />
-                  <span style={{ fontSize: 11, color: 'var(--text-dim)', opacity: 0.7 }}>
-                    or click to pick
-                  </span>
-                </div>
-              ) : (
-                <SidebarButton onClick={() => prdFileInputRef.current?.click()} fullWidth style={{ marginBottom: 6 }}>
-                  + Replace file
-                </SidebarButton>
-              )}
-
-              {/* Paste toggle */}
-              {!prdShowPaste ? (
-                <button
-                  onClick={() => setPrdShowPaste(true)}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    color: 'var(--text-dim)',
-                    fontSize: 11,
-                    cursor: 'pointer',
-                    padding: '4px 0',
-                    marginTop: 4,
-                    display: 'block',
-                    textDecoration: 'underline',
-                    textUnderlineOffset: 3,
-                  }}
-                >
-                  or paste manually
-                </button>
-              ) : (
-                <div style={{ marginTop: 6 }}>
                   <textarea
                     value={prdPasteInput}
                     onChange={(e) => setPrdPasteInput(e.target.value)}
-                    placeholder="Paste PRD text here…"
+                    placeholder="Paste PRD text here, or drop a file…"
                     rows={5}
                     style={{
                       width: '100%',
@@ -412,14 +367,13 @@ export default function App() {
                       boxSizing: 'border-box',
                     }}
                   />
-                  <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 6 }}>
                     <button
                       onClick={() => {
                         if (!prdPasteInput.trim()) return;
                         setPrdText(prdPasteInput.trim());
                         setPrdFileName(null);
                         setPrdPasteInput('');
-                        setPrdShowPaste(false);
                       }}
                       disabled={!prdPasteInput.trim()}
                       style={{
@@ -436,11 +390,28 @@ export default function App() {
                     >
                       Load
                     </button>
-                    <SidebarButton onClick={() => { setPrdShowPaste(false); setPrdPasteInput(''); }}>
-                      Cancel
-                    </SidebarButton>
+                    <button
+                      onClick={() => prdFileInputRef.current?.click()}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: 'var(--text-dim)',
+                        fontSize: 11,
+                        cursor: 'pointer',
+                        padding: '4px 0',
+                        textDecoration: 'underline',
+                        textUnderlineOffset: 3,
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      Upload file
+                    </button>
                   </div>
                 </div>
+              ) : (
+                <SidebarButton onClick={() => prdFileInputRef.current?.click()} fullWidth style={{ marginBottom: 6 }}>
+                  + Replace file
+                </SidebarButton>
               )}
 
               <button
@@ -972,6 +943,7 @@ export default function App() {
           transcriptSummary={transcriptSummary}
           activeRepos={activeRepos}
           sidebarFigmaLinks={figmaLinks}
+          prdText={prdText}
           pendingPrd={pendingPrd}
           onPrdSent={() => setPendingPrd(null)}
           onRequestTranscriptPanel={() => setTranscriptExpanded(true)}

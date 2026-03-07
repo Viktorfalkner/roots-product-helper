@@ -6,7 +6,7 @@ import { TRANSCRIPT_SYSTEM_PROMPT, transcriptExtractionPrompt } from './prompts.
  * Shared payload builder — assembles system blocks and final message array
  * (including multimodal Figma transform) for both chat() and chatStream().
  */
-function buildApiPayload(messages, activeObjective, transcriptSummary, activeRepos, activeEpic, figmaImages, figmaContexts) {
+function buildApiPayload(messages, activeObjective, transcriptSummary, activeRepos, activeEpic, figmaImages, figmaContexts, prdText = null) {
   const cache = loadCache();
   if (!cache) {
     throw new Error(
@@ -15,7 +15,7 @@ function buildApiPayload(messages, activeObjective, transcriptSummary, activeRep
   }
 
   const staticPrompt = buildStaticPrompt(cache);
-  const dynamicContext = buildDynamicContext(activeObjective, transcriptSummary, activeRepos, activeEpic);
+  const dynamicContext = buildDynamicContext(activeObjective, transcriptSummary, activeRepos, activeEpic, prdText);
 
   // Static block is marked for caching — Anthropic stores it for 5 minutes,
   // so a normal back-and-forth session pays the write cost once and ~10% after.
@@ -113,9 +113,9 @@ export async function chat(messages, activeObjective = null, transcriptSummary =
  * The caller attaches .on('text', fn), .on('finalMessage', fn), .on('error', fn).
  * Call stream.abort() to cancel.
  */
-export async function chatStream(messages, activeObjective = null, transcriptSummary = null, activeRepos = [], model = 'claude-opus-4-6', activeEpic = null, figmaImages = [], figmaContexts = []) {
+export async function chatStream(messages, activeObjective = null, transcriptSummary = null, activeRepos = [], model = 'claude-opus-4-6', activeEpic = null, figmaImages = [], figmaContexts = [], prdText = null) {
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-  const { systemBlocks, finalMessages } = buildApiPayload(messages, activeObjective, transcriptSummary, activeRepos, activeEpic, figmaImages, figmaContexts);
+  const { systemBlocks, finalMessages } = buildApiPayload(messages, activeObjective, transcriptSummary, activeRepos, activeEpic, figmaImages, figmaContexts, prdText);
 
   return client.messages.stream({
     model,
