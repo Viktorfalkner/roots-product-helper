@@ -18,7 +18,8 @@ roots-product-helper/
 │   │                              #   chat (SSE), summarize-transcript, objective/:id, epic/:id,
 │   │                              #   reference-library CRUD
 │   ├── claude.js                  # Claude API client — buildApiPayload(), chatStream(), chat(),
-│   │                              #   summarizeTranscript(). Handles Figma multimodal transform + prompt caching.
+│   │                              #   summarizeTranscript(). Handles Figma multimodal transform,
+│   │                              #   prompt caching (3 ephemeral blocks), and message history cap.
 │   ├── context.js                 # Cache reader + system prompt builder.
 │   │                              #   loadCache(), getCacheStatus(), buildStaticPrompt(), buildDynamicContext()
 │   ├── prompts.js                 # ALL prompt strings — single source of truth.
@@ -83,6 +84,12 @@ roots-product-helper/
 
 **Bootstrap → Cache → System Prompt**
 `bootstrap.js` fetches from Shortcut: SDLC SOP, story/epic/objective templates, reference objectives with sample epics/stories, full objectives list, default workflow state ID. Writes all of it to `context/cache.json`. On each chat request, `context.js` assembles the system prompt: `buildStaticPrompt()` (cacheable block — SOP + templates + reference objectives + rules) + `buildDynamicContext()` (per-request — active objective, epic, repos, transcript). The static block is marked `cache_control: { type: 'ephemeral' }` in `claude.js`, so Anthropic caches it for 5 minutes.
+
+**Prompt Caching Strategy (3 of 4 ephemeral slots used)**
+`buildApiPayload()` in `claude.js` uses three cache layers:
+1. **Static system prompt** — SOP + templates + rules. Written once per session, read on every subsequent turn (~10% of input cost).
+2. **Dynamic context block** — active objective/epic/repos/transcript. Cached separately; hits on every turn where context hasn't changed (the common case in a focused session).
+3. **Message history** — when conversation is ≥ 4 messages, `cache_control` is placed on the message at `length - 3`, caching all prior turns. Only the last 2 turns pay full price. Message history is also capped at 40 messages (20 turns) to bound total token cost.
 
 **Chat Request Flow**
 `POST /api/chat` receives `{ messages, active_objective, active_epic, active_repos, transcript_summary, figma_urls, pasted_images, model }`. Backend fetches Figma images in parallel (before opening SSE), then calls `claude.js → chatStream()`. Tokens stream back as `data: {"text":"..."}` SSE events, terminated by `data: [DONE]`.
