@@ -303,136 +303,109 @@ export default function App() {
                     }}
                   >
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div
-                        style={{
-                          fontSize: 12,
-                          color: 'var(--text)',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap',
-                        }}
-                      >
+                      <div style={{ fontSize: 12, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {prdFileName || 'Pasted PRD'}
                       </div>
                     </div>
                     <span style={{ color: 'var(--accent)', fontSize: 11, flexShrink: 0 }}>✓</span>
                     <button
                       onClick={() => { setPrdText(''); setPrdFileName(null); }}
-                      style={{
-                        background: 'none',
-                        border: 'none',
-                        color: 'var(--text-dim)',
-                        fontSize: 14,
-                        cursor: 'pointer',
-                        padding: '0 2px',
-                        lineHeight: 1,
-                        flexShrink: 0,
-                      }}
+                      style={{ background: 'none', border: 'none', color: 'var(--text-dim)', fontSize: 14, cursor: 'pointer', padding: '0 2px', lineHeight: 1, flexShrink: 0 }}
                       title="Remove"
-                    >
-                      ×
-                    </button>
+                    >×</button>
                   </div>
-                </div>
-              )}
-
-              {/* Empty state: textarea + upload link. Loaded state: replace link. */}
-              {!prdText ? (
-                <div
-                  onDragOver={(e) => e.preventDefault()}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    const file = e.dataTransfer.files?.[0];
-                    if (file) handlePrdFileUpload(file);
-                  }}
-                >
-                  <textarea
-                    value={prdPasteInput}
-                    onChange={(e) => setPrdPasteInput(e.target.value)}
-                    placeholder="Paste PRD text here, or drop a file…"
-                    rows={5}
+                  <button
+                    onClick={handleConvertPrd}
                     style={{
-                      width: '100%',
-                      background: 'var(--bg-elevated)',
-                      border: '1px solid var(--border)',
-                      borderRadius: 'var(--radius-sm)',
-                      color: 'var(--text)',
-                      fontSize: 12,
-                      lineHeight: 1.5,
-                      padding: '8px',
-                      resize: 'vertical',
-                      outline: 'none',
-                      minHeight: 80,
-                      maxHeight: 180,
-                      boxSizing: 'border-box',
+                      background: 'none',
+                      border: 'none',
+                      color: 'var(--accent)',
+                      fontSize: 11,
+                      cursor: 'pointer',
+                      padding: '4px 0',
+                      display: 'block',
                     }}
-                  />
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 6 }}>
-                    <button
-                      onClick={() => {
-                        if (!prdPasteInput.trim()) return;
-                        setPrdText(prdPasteInput.trim());
-                        setPrdFileName(null);
-                        setPrdPasteInput('');
-                      }}
-                      disabled={!prdPasteInput.trim()}
-                      style={{
-                        flex: 1,
-                        background: prdPasteInput.trim() ? 'var(--accent)' : 'var(--bg-hover)',
-                        border: 'none',
-                        borderRadius: 'var(--radius-sm)',
-                        color: prdPasteInput.trim() ? '#000' : 'var(--text-dim)',
-                        fontSize: 12,
-                        fontWeight: 600,
-                        padding: '5px 12px',
-                        cursor: prdPasteInput.trim() ? 'pointer' : 'not-allowed',
-                      }}
-                    >
-                      Load
-                    </button>
-                    <button
-                      onClick={() => prdFileInputRef.current?.click()}
-                      style={{
-                        background: 'none',
-                        border: 'none',
-                        color: 'var(--text-dim)',
-                        fontSize: 11,
-                        cursor: 'pointer',
-                        padding: '4px 0',
-                        textDecoration: 'underline',
-                        textUnderlineOffset: 3,
-                        whiteSpace: 'nowrap',
-                      }}
-                    >
-                      Upload file
-                    </button>
-                  </div>
+                  >
+                    Draft objective →
+                  </button>
                 </div>
-              ) : (
-                <SidebarButton onClick={() => prdFileInputRef.current?.click()} fullWidth style={{ marginBottom: 6 }}>
-                  + Replace file
-                </SidebarButton>
               )}
 
-              <button
-                onClick={handleConvertPrd}
-                disabled={!prdText.trim()}
+              {/* Drop zone */}
+              <div
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  const file = e.dataTransfer.files?.[0];
+                  if (file) handlePrdFileUpload(file);
+                }}
+                onClick={() => prdFileInputRef.current?.click()}
                 style={{
-                  width: '100%',
-                  background: prdText.trim() ? 'var(--amber)' : 'var(--bg-hover)',
-                  border: 'none',
+                  border: '1.5px dashed var(--border)',
                   borderRadius: 'var(--radius-sm)',
-                  color: prdText.trim() ? '#000' : 'var(--text-dim)',
+                  padding: '16px 8px',
+                  textAlign: 'center',
+                  cursor: 'pointer',
+                  color: 'var(--text-dim)',
                   fontSize: 12,
-                  fontWeight: 600,
-                  padding: '6px 12px',
-                  cursor: prdText.trim() ? 'pointer' : 'not-allowed',
-                  transition: 'background 0.15s',
-                  marginTop: 8,
+                  lineHeight: 1.5,
+                  marginBottom: 6,
                 }}
               >
-                Convert to Objective →
-              </button>
+                Drop .txt / .md here
+                <br />
+                <span style={{ fontSize: 11, color: 'var(--text-dim)', opacity: 0.7 }}>or click to pick</span>
+              </div>
+
+              {/* Paste area */}
+              <textarea
+                value={prdPasteInput}
+                onChange={(e) => setPrdPasteInput(e.target.value)}
+                placeholder="Paste PRD text here…"
+                rows={5}
+                style={{
+                  width: '100%',
+                  background: 'var(--bg-elevated)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 'var(--radius-sm)',
+                  color: 'var(--text)',
+                  fontSize: 12,
+                  lineHeight: 1.5,
+                  padding: '8px',
+                  resize: 'vertical',
+                  outline: 'none',
+                  minHeight: 80,
+                  maxHeight: 180,
+                  boxSizing: 'border-box',
+                }}
+              />
+              <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+                <button
+                  onClick={() => {
+                    if (!prdPasteInput.trim()) return;
+                    setPrdText(prdPasteInput.trim());
+                    setPrdFileName(null);
+                    setPrdPasteInput('');
+                  }}
+                  disabled={!prdPasteInput.trim()}
+                  style={{
+                    flex: 1,
+                    background: prdPasteInput.trim() ? 'var(--accent)' : 'var(--bg-hover)',
+                    border: 'none',
+                    borderRadius: 'var(--radius-sm)',
+                    color: prdPasteInput.trim() ? '#000' : 'var(--text-dim)',
+                    fontSize: 12,
+                    fontWeight: 600,
+                    padding: '5px 12px',
+                    cursor: prdPasteInput.trim() ? 'pointer' : 'not-allowed',
+                  }}
+                >
+                  Load
+                </button>
+                <SidebarButton onClick={() => setPrdPasteInput('')} disabled={!prdPasteInput.trim()}>
+                  Cancel
+                </SidebarButton>
+              </div>
             </div>
           </CollapsibleSection>
         </div>
