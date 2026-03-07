@@ -1,627 +1,82 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import Chat from './components/Chat.jsx';
 import ContextBadge from './components/ContextBadge.jsx';
 import SidebarButton from './components/SidebarButton.jsx';
 import ChatHistoryPanel from './components/ChatHistoryPanel.jsx';
-import { listChats, getChat, saveChat, updateChat, deleteChat } from './lib/chatHistory.js';
+import { listChats, deleteChat } from './lib/chatHistory.js';
 import Settings from './components/Settings.jsx';
-
-function parseObjectiveId(input) {
-  const trimmed = input.trim();
-  // Shortcut URL: https://app.shortcut.com/.../objective/12345/...
-  const urlMatch = trimmed.match(/objectives?\/(\d+)/);
-  if (urlMatch) return parseInt(urlMatch[1], 10);
-  // Plain number
-  const num = parseInt(trimmed, 10);
-  if (!isNaN(num)) return num;
-  return null;
-}
-
-const FIGMA_URL_RE = /https:\/\/www\.figma\.com\/(file|design)\/([a-zA-Z0-9]+)\/([^?#\s]*)\?[^#\s]*node-id=([^&\s#]+)/;
-
-function parseFigmaInput(input) {
-  const trimmed = input.trim();
-  const match = trimmed.match(FIGMA_URL_RE);
-  if (!match) return null;
-  const slug = decodeURIComponent(match[3]).replace(/-/g, ' ').trim();
-  const nodeId = decodeURIComponent(match[4]);
-  const label = slug ? `${slug} — ${nodeId}` : nodeId;
-  return { url: trimmed, label };
-}
-
-
-function MilestoneRow({ keyResult }) {
-  return (
-    <div
-      style={{
-        display: 'flex',
-        alignItems: 'flex-start',
-        gap: 8,
-        padding: '5px 0',
-        borderBottom: '1px solid var(--border-subtle)',
-      }}
-    >
-      <div
-        style={{
-          width: 6,
-          height: 6,
-          borderRadius: '50%',
-          background: 'var(--text-dim)',
-          marginTop: 5,
-          flexShrink: 0,
-        }}
-      />
-      <span style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.4 }}>
-        {keyResult.name || keyResult.type}
-      </span>
-    </div>
-  );
-}
-
-function ObjectivePanel({ objective, onClear }) {
-  const totalEpics = objective.epics?.length || 0;
-  const completedEpics = objective.epics?.filter((e) => e.completed)?.length || 0;
-
-  return (
-    <div
-      style={{
-        background: 'var(--bg-surface)',
-        border: '1px solid var(--border)',
-        borderLeft: '3px solid var(--accent)',
-        borderRadius: 'var(--radius)',
-        padding: 12,
-      }}
-    >
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'flex-start',
-          marginBottom: 8,
-        }}
-      >
-        <div>
-          <div
-            style={{
-              fontSize: 10,
-              textTransform: 'uppercase',
-              letterSpacing: '0.08em',
-              color: 'var(--accent)',
-              fontWeight: 600,
-              marginBottom: 3,
-            }}
-          >
-            Active Objective
-          </div>
-          <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text)', lineHeight: 1.3 }}>
-            {objective.name}
-          </div>
-        </div>
-        <button
-          onClick={onClear}
-          style={{
-            background: 'none',
-            border: 'none',
-            color: 'var(--text-dim)',
-            fontSize: 16,
-            cursor: 'pointer',
-            padding: '0 2px',
-            lineHeight: 1,
-          }}
-          title="Clear active objective"
-        >
-          ×
-        </button>
-      </div>
-
-      <div
-        style={{
-          display: 'flex',
-          gap: 12,
-          marginBottom: 10,
-          fontSize: 11,
-          color: 'var(--text-muted)',
-        }}
-      >
-        <span>
-          <strong style={{ color: 'var(--text)' }}>{completedEpics}</strong>/{totalEpics} epics
-          done
-        </span>
-        <span style={{ color: 'var(--text-dim)' }}>ID: {objective.id}</span>
-      </div>
-
-      {objective.key_results && objective.key_results.length > 0 && (
-        <div>
-          <div
-            style={{
-              fontSize: 10,
-              textTransform: 'uppercase',
-              letterSpacing: '0.08em',
-              color: 'var(--text-dim)',
-              fontWeight: 600,
-              marginBottom: 6,
-            }}
-          >
-            Milestones
-          </div>
-          {objective.key_results.slice(0, 5).map((kr, i) => (
-            <MilestoneRow key={i} keyResult={kr} />
-          ))}
-          {objective.key_results.length > 5 && (
-            <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 4 }}>
-              +{objective.key_results.length - 5} more
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function EpicPanel({ epic, onClear }) {
-  return (
-    <div
-      style={{
-        background: 'var(--bg-surface)',
-        border: '1px solid var(--border)',
-        borderLeft: '3px solid var(--amber)',
-        borderRadius: 'var(--radius)',
-        padding: '8px 12px',
-        marginTop: 8,
-      }}
-    >
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-        <div>
-          <div
-            style={{
-              fontSize: 10,
-              textTransform: 'uppercase',
-              letterSpacing: '0.08em',
-              color: 'var(--amber)',
-              fontWeight: 600,
-              marginBottom: 3,
-            }}
-          >
-            Active Epic
-          </div>
-          <div style={{ fontSize: 12, fontWeight: 500, color: 'var(--text)', lineHeight: 1.3 }}>
-            {epic.name}
-          </div>
-          <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 2 }}>ID: {epic.id}</div>
-        </div>
-        <button
-          onClick={onClear}
-          style={{
-            background: 'none',
-            border: 'none',
-            color: 'var(--text-dim)',
-            fontSize: 16,
-            cursor: 'pointer',
-            padding: '0 2px',
-            lineHeight: 1,
-          }}
-          title="Clear active epic"
-        >
-          ×
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function StoryPanel({ story, onClear }) {
-  return (
-    <div
-      style={{
-        background: 'var(--bg-surface)',
-        border: '1px solid var(--border)',
-        borderLeft: '3px solid var(--blue)',
-        borderRadius: 'var(--radius)',
-        padding: '8px 12px',
-        marginTop: 8,
-      }}
-    >
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-        <div>
-          <div
-            style={{
-              fontSize: 10,
-              textTransform: 'uppercase',
-              letterSpacing: '0.08em',
-              color: 'var(--blue)',
-              fontWeight: 600,
-              marginBottom: 3,
-            }}
-          >
-            Active Story
-          </div>
-          <div style={{ fontSize: 12, fontWeight: 500, color: 'var(--text)', lineHeight: 1.3 }}>
-            {story.name}
-          </div>
-          <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 2 }}>ID: {story.id}</div>
-        </div>
-        <button
-          onClick={onClear}
-          style={{
-            background: 'none',
-            border: 'none',
-            color: 'var(--text-dim)',
-            fontSize: 16,
-            cursor: 'pointer',
-            padding: '0 2px',
-            lineHeight: 1,
-          }}
-          title="Clear active story"
-        >
-          ×
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function ReferenceLibrary() {
-  const [config, setConfig] = useState(null);
-  const [addInput, setAddInput] = useState('');
-  const [adding, setAdding] = useState(false);
-  const [expanded, setExpanded] = useState(false);
-
-  useEffect(() => {
-    fetch('/api/reference-library')
-      .then((r) => r.json())
-      .then(setConfig)
-      .catch(() => {});
-  }, []);
-
-  async function handleAdd() {
-    const id = parseInt(addInput.trim(), 10);
-    if (isNaN(id)) return;
-    setAdding(true);
-    try {
-      const res = await fetch('/api/reference-library/add', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ objective_id: id }),
-      });
-      const data = await res.json();
-      if (data.ok) {
-        setConfig(data.config);
-        setAddInput('');
-      }
-    } finally {
-      setAdding(false);
-    }
-  }
-
-  async function handleRemove(id) {
-    const res = await fetch('/api/reference-library/remove', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ objective_id: id }),
-    });
-    const data = await res.json();
-    if (data.ok) setConfig(data.config);
-  }
-
-  if (!config) return null;
-
-  return (
-    <div>
-      <button
-        onClick={() => setExpanded((v) => !v)}
-        style={{
-          background: 'none',
-          border: 'none',
-          color: 'var(--text-muted)',
-          fontSize: 11,
-          fontWeight: 600,
-          textTransform: 'uppercase',
-          letterSpacing: '0.08em',
-          cursor: 'pointer',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 6,
-          padding: 0,
-          width: '100%',
-          marginBottom: expanded ? 8 : 0,
-        }}
-      >
-        <span style={{ color: 'var(--text-dim)' }}>{expanded ? '▾' : '▸'}</span>
-        Reference Library ({config.reference_objective_ids?.length || 0})
-      </button>
-
-      {expanded && (
-        <div style={{ marginTop: 8 }}>
-          {(config.references || config.reference_objective_ids?.map((id) => ({ id, name: null })) || []).map(({ id, name }) => (
-            <div
-              key={id}
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'flex-start',
-                padding: '5px 0',
-                gap: 8,
-              }}
-            >
-              <div style={{ minWidth: 0 }}>
-                <div style={{ fontSize: 12, color: 'var(--text)', lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {name || `Objective #${id}`}
-                </div>
-                <div style={{ fontSize: 10, color: 'var(--text-dim)', marginTop: 1 }}>#{id}</div>
-              </div>
-              <SidebarButton onClick={() => handleRemove(id)} size="sm" style={{ flexShrink: 0 }}>
-                Remove
-              </SidebarButton>
-            </div>
-          ))}
-
-          <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
-            <input
-              value={addInput}
-              onChange={(e) => setAddInput(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
-              placeholder="Objective ID"
-              style={{
-                flex: 1,
-                background: 'var(--bg-elevated)',
-                border: '1px solid var(--border)',
-                borderRadius: 'var(--radius-sm)',
-                color: 'var(--text)',
-                fontSize: 12,
-                padding: '4px 8px',
-                outline: 'none',
-              }}
-            />
-            <SidebarButton onClick={handleAdd} disabled={adding || !addInput.trim()}>
-              {adding ? '...' : 'Add'}
-            </SidebarButton>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function RepoPicker({ repos, loading, error, search, onSearch, onSelect, onClose, alreadyLoaded, starred, onToggleStar }) {
-  const filtered = repos
-    ? repos
-        .filter((r) => {
-          const q = search.toLowerCase();
-          return r.full_name.toLowerCase().includes(q) || (r.description || '').toLowerCase().includes(q);
-        })
-        .sort((a, b) => {
-          const aStarred = starred.includes(a.full_name) ? 0 : 1;
-          const bStarred = starred.includes(b.full_name) ? 0 : 1;
-          return aStarred - bStarred;
-        })
-    : [];
-
-  return (
-    <div
-      onClick={onClose}
-      style={{
-        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-      }}
-    >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        style={{
-          background: 'var(--bg-elevated)',
-          border: '1px solid var(--border)',
-          borderRadius: 'var(--radius)',
-          width: 480,
-          maxHeight: '70vh',
-          display: 'flex',
-          flexDirection: 'column',
-          boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
-        }}
-      >
-        {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', padding: '12px 16px', borderBottom: '1px solid var(--border-subtle)' }}>
-          <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>Select a repository</span>
-          <button
-            onClick={onClose}
-            style={{ background: 'none', border: 'none', color: 'var(--text-dim)', fontSize: 18, cursor: 'pointer', lineHeight: 1, padding: '0 2px' }}
-          >
-            ×
-          </button>
-        </div>
-
-        {/* Search */}
-        <div style={{ padding: '10px 16px', borderBottom: '1px solid var(--border-subtle)' }}>
-          <input
-            autoFocus
-            value={search}
-            onChange={(e) => onSearch(e.target.value)}
-            placeholder="Search repositories..."
-            style={{
-              width: '100%',
-              boxSizing: 'border-box',
-              background: 'var(--bg)',
-              border: '1px solid var(--border)',
-              borderRadius: 'var(--radius-sm)',
-              color: 'var(--text)',
-              fontSize: 13,
-              padding: '6px 10px',
-              outline: 'none',
-            }}
-          />
-        </div>
-
-        {/* List */}
-        <div style={{ overflowY: 'auto', flex: 1 }}>
-          {loading && (
-            <div style={{ padding: 20, textAlign: 'center', color: 'var(--text-dim)', fontSize: 13 }}>Loading repos...</div>
-          )}
-          {error && (
-            <div style={{ padding: 20, textAlign: 'center', color: 'var(--red)', fontSize: 13 }}>{error}</div>
-          )}
-          {!loading && !error && filtered.length === 0 && (
-            <div style={{ padding: 20, textAlign: 'center', color: 'var(--text-dim)', fontSize: 13 }}>No repositories found</div>
-          )}
-          {filtered.map((r, i) => {
-            const loaded = alreadyLoaded.some((x) => x.owner === r.owner && x.repo === r.repo);
-            const isStarred = starred.includes(r.full_name);
-            const prevStarred = i > 0 && starred.includes(filtered[i - 1].full_name);
-            const showDivider = !isStarred && prevStarred && starred.length > 0 && !search;
-            return (
-              <div key={r.full_name}>
-                {showDivider && (
-                  <div style={{ height: 1, background: 'var(--border)', margin: '0 16px' }} />
-                )}
-                <div
-                  onClick={() => !loaded && onSelect(r.owner, r.repo)}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 10,
-                    padding: '9px 16px',
-                    borderBottom: '1px solid var(--border-subtle)',
-                    cursor: loaded ? 'default' : 'pointer',
-                    opacity: loaded ? 0.5 : 1,
-                  }}
-                  onMouseEnter={(e) => { if (!loaded) e.currentTarget.style.background = 'var(--bg-hover, var(--bg))'; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.background = ''; }}
-                >
-                  <button
-                    onClick={(e) => { e.stopPropagation(); onToggleStar(r.full_name); }}
-                    title={isStarred ? 'Unstar' : 'Star'}
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      cursor: 'pointer',
-                      padding: '0 2px',
-                      fontSize: 14,
-                      lineHeight: 1,
-                      color: isStarred ? '#f5c518' : 'var(--text-dim)',
-                      flexShrink: 0,
-                    }}
-                  >
-                    {isStarred ? '★' : '☆'}
-                  </button>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 13, color: 'var(--text)', fontWeight: 500 }}>{r.full_name}</div>
-                    {r.description && (
-                      <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.description}</div>
-                    )}
-                  </div>
-                  {r.private && (
-                    <span style={{ fontSize: 10, color: 'var(--text-dim)', border: '1px solid var(--border)', borderRadius: 3, padding: '1px 5px', flexShrink: 0 }}>private</span>
-                  )}
-                  {loaded && (
-                    <span style={{ fontSize: 10, color: 'var(--accent)', background: 'var(--accent-bg)', borderRadius: 3, padding: '1px 5px', flexShrink: 0, fontWeight: 600 }}>loaded</span>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    </div>
-  );
-}
+import ObjectivePanel from './components/ObjectivePanel.jsx';
+import EpicPanel from './components/EpicPanel.jsx';
+import StoryPanel from './components/StoryPanel.jsx';
+import ReferenceLibrary from './components/ReferenceLibrary.jsx';
+import RepoPicker from './components/RepoPicker.jsx';
+import CollapsibleSection from './components/CollapsibleSection.jsx';
+import { useObjectiveContext } from './hooks/useObjectiveContext.js';
+import { useRepositoryContext } from './hooks/useRepositoryContext.js';
+import { useTranscriptContext } from './hooks/useTranscriptContext.js';
+import { usePrdContext } from './hooks/usePrdContext.js';
+import { useFigmaContext } from './hooks/useFigmaContext.js';
+import { useChatHistory } from './hooks/useChatHistory.js';
 
 export default function App() {
   const [contextStatus, setContextStatus] = useState(null);
-  const [sessionKey, setSessionKey] = useState(0);
-  const [objectiveInput, setObjectiveInput] = useState('');
-  const [activeObjective, setActiveObjective] = useState(null);
-  const [activeEpic, setActiveEpic] = useState(null);
-  const [activeStory, setActiveStory] = useState(null);
-  const [loadingObjective, setLoadingObjective] = useState(false);
-  const [objectiveError, setObjectiveError] = useState(null);
-  const [activeRepos, setActiveRepos] = useState([]);
-  const [repoExpanded, setRepoExpanded] = useState(false);
-  const [loadingRepo, setLoadingRepo] = useState(false);
-  const [repoError, setRepoError] = useState(null);
-  const [repoPickerOpen, setRepoPickerOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsStatus, setSettingsStatus] = useState(null);
-  const [repoPickerList, setRepoPickerList] = useState(null);
-  const [repoPickerLoading, setRepoPickerLoading] = useState(false);
-  const [repoPickerError, setRepoPickerError] = useState(null);
-  const [repoPickerSearch, setRepoPickerSearch] = useState('');
-  const [starredRepos, setStarredRepos] = useState(() => {
-    try {
-      const saved = localStorage.getItem('starredRepos');
-      if (saved) return JSON.parse(saved);
-    } catch {}
-    return ['invest-with-roots/roots', 'invest-with-roots/bloom', 'invest-with-roots/grove-ui'];
-  });
 
-  function toggleStarRepo(full_name) {
-    setStarredRepos((prev) => {
-      const next = prev.includes(full_name) ? prev.filter((x) => x !== full_name) : [...prev, full_name];
-      localStorage.setItem('starredRepos', JSON.stringify(next));
-      return next;
-    });
-  }
-  const [figmaLinks, setFigmaLinks] = useState([]);
-  const [figmaInput, setFigmaInput] = useState('');
-  const [figmaExpanded, setFigmaExpanded] = useState(false);
-  const [figmaError, setFigmaError] = useState(null);
-  // Each entry: { id, name, summary } — summary is null while loading
-  const [transcripts, setTranscripts] = useState([]);
-  const [transcriptExpanded, setTranscriptExpanded] = useState(false);
-  const [showPaste, setShowPaste] = useState(false);
-  const [pasteText, setPasteText] = useState('');
-  const fileInputRef = useRef(null);
-  // PRD
-  const [prdText, setPrdText] = useState('');
-  const [prdFileName, setPrdFileName] = useState(null);
-  const [prdExpanded, setPrdExpanded] = useState(false);
-  const [pendingPrd, setPendingPrd] = useState(null);
-  const [prdShowPaste, setPrdShowPaste] = useState(false);
-  const [prdPasteInput, setPrdPasteInput] = useState('');
-  const prdFileInputRef = useRef(null);
-
-  // Lifted from Chat.jsx
+  // Chat message state lives here to avoid circular dep with buildChatContext
   const [messages, setMessages] = useState([]);
   const [model, setModel] = useState('claude-opus-4-6');
   const [chatFigmaLinks, setChatFigmaLinks] = useState([]);
 
-  // Chat history
-  const [currentChatId, setCurrentChatId] = useState(null);
-  const [chatHistory, setChatHistory] = useState(() => listChats());
+  const {
+    objectiveInput, setObjectiveInput,
+    activeObjective, setActiveObjective,
+    loadingObjective,
+    objectiveError, setObjectiveError,
+    activeEpic, setActiveEpic,
+    activeStory, setActiveStory,
+    handleLoadObjective,
+  } = useObjectiveContext();
 
-  const transcriptSummary =
-    transcripts.length > 0
-      ? transcripts
-          .map((t, i) => `**Meeting ${i + 1}: ${t.name}**\n\n${t.summary ?? '(summarizing…)'}`)
-          .join('\n\n---\n\n')
-      : null;
+  const {
+    activeRepos, setActiveRepos,
+    repoExpanded, setRepoExpanded,
+    loadingRepo, repoError,
+    repoPickerOpen, setRepoPickerOpen,
+    repoPickerList, repoPickerLoading, repoPickerError,
+    repoPickerSearch, setRepoPickerSearch,
+    starredRepos,
+    handleLoadRepo, openRepoPicker, toggleStarRepo,
+  } = useRepositoryContext();
 
-  useEffect(() => {
-    fetchContextStatus();
-    fetch('/api/settings')
-      .then((r) => r.json())
-      .then((data) => setSettingsStatus(data.settings))
-      .catch(() => {});
-  }, []);
+  const {
+    transcripts, setTranscripts,
+    transcriptExpanded, setTranscriptExpanded,
+    showPaste, setShowPaste,
+    pasteText, setPasteText,
+    fileInputRef,
+    transcriptSummary,
+    handleFileUpload, handlePasteLoad,
+  } = useTranscriptContext();
 
-  useEffect(() => {
-    setActiveEpic(null);
-    setActiveStory(null);
-  }, [activeObjective]);
+  const {
+    prdText, setPrdText,
+    prdFileName, setPrdFileName,
+    prdExpanded, setPrdExpanded,
+    pendingPrd, setPendingPrd,
+    prdShowPaste, setPrdShowPaste,
+    prdPasteInput, setPrdPasteInput,
+    prdFileInputRef,
+    handlePrdFileUpload, handleConvertPrd,
+  } = usePrdContext();
 
-  useEffect(() => {
-    setActiveStory(null);
-  }, [activeEpic]);
-
-  // --- Chat history helpers ---
-  function deriveName(messages, objective) {
-    if (objective?.name) return objective.name.slice(0, 50).trim();
-    const firstUser = messages.find((m) => m.role === 'user');
-    const text = typeof firstUser?.content === 'string' ? firstUser.content : '';
-    if (!text) return 'Untitled chat';
-    const clean = text.replace(/\s+/g, ' ').trim();
-    return clean.slice(0, 50).replace(/\s\S*$/, '').trim() || 'Untitled chat';
-  }
-
-  function stripImages(msgs) {
-    return msgs.map(({ images: _images, ...rest }) => rest);
-  }
+  const {
+    figmaLinks, setFigmaLinks,
+    figmaInput, setFigmaInput,
+    figmaExpanded, setFigmaExpanded,
+    figmaError, setFigmaError,
+    handleAddFigmaLink,
+  } = useFigmaContext();
 
   function buildChatContext() {
     return {
@@ -636,67 +91,42 @@ export default function App() {
     };
   }
 
-  // Auto-save after every completed AI response
+  const {
+    currentChatId,
+    chatHistory, setChatHistory,
+    sessionKey,
+    handleNewChat,
+    handleRestoreChat,
+    handleRenameChat,
+    handleStarChat,
+  } = useChatHistory({
+    messages,
+    buildContext: buildChatContext,
+    onNewChat: () => {
+      setMessages([]);
+      setModel('claude-opus-4-6');
+      setChatFigmaLinks([]);
+    },
+    onRestoreChat: (chat) => {
+      setMessages(chat.messages || []);
+      setModel(chat.context?.model || 'claude-opus-4-6');
+      setChatFigmaLinks(chat.context?.figmaLinks || []);
+      if (chat.context?.activeObjective) setActiveObjective(chat.context.activeObjective);
+      if (chat.context?.activeEpic) setActiveEpic(chat.context.activeEpic);
+      setActiveRepos(chat.context?.activeRepos || []);
+      setTranscripts(chat.context?.transcripts || []);
+      setFigmaLinks(chat.context?.sidebarFigmaLinks || []);
+      if (chat.context?.prdText) setPrdText(chat.context.prdText);
+    },
+  });
+
   useEffect(() => {
-    const last = messages[messages.length - 1];
-    if (!last || last.role !== 'assistant' || messages.length < 2) return;
-
-    const now = new Date().toISOString();
-    const context = buildChatContext();
-
-    if (!currentChatId) {
-      const id = crypto.randomUUID();
-      const name = deriveName(messages, activeObjective);
-      setCurrentChatId(id);
-      saveChat({ id, name, createdAt: now, updatedAt: now, starred: false, messages: stripImages(messages), context });
-    } else {
-      updateChat(currentChatId, { updatedAt: now, messages: stripImages(messages), context });
-    }
-    setChatHistory(listChats());
-  }, [messages]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  function handleNewChat() {
-    if (messages.length > 0 && !currentChatId) {
-      const now = new Date().toISOString();
-      const id = crypto.randomUUID();
-      const name = deriveName(messages, activeObjective);
-      saveChat({ id, name, createdAt: now, updatedAt: now, starred: false, messages: stripImages(messages), context: buildChatContext() });
-      setChatHistory(listChats());
-    }
-    setMessages([]);
-    setModel('claude-opus-4-6');
-    setChatFigmaLinks([]);
-    setCurrentChatId(null);
-    setSessionKey((k) => k + 1);
-  }
-
-  function handleRestoreChat(chatId) {
-    const chat = getChat(chatId);
-    if (!chat) return;
-    setMessages(chat.messages || []);
-    setModel(chat.context?.model || 'claude-opus-4-6');
-    setChatFigmaLinks(chat.context?.figmaLinks || []);
-    setCurrentChatId(chatId);
-    if (chat.context?.activeObjective) setActiveObjective(chat.context.activeObjective);
-    if (chat.context?.activeEpic) setActiveEpic(chat.context.activeEpic);
-    setActiveRepos(chat.context?.activeRepos || []);
-    setTranscripts(chat.context?.transcripts || []);
-    setFigmaLinks(chat.context?.sidebarFigmaLinks || []);
-    if (chat.context?.prdText) setPrdText(chat.context.prdText);
-    setSessionKey((k) => k + 1);
-  }
-
-  function handleRenameChat(id, name) {
-    updateChat(id, { name });
-    setChatHistory(listChats());
-  }
-
-  function handleStarChat(id) {
-    const chat = getChat(id);
-    if (!chat) return;
-    updateChat(id, { starred: !chat.starred });
-    setChatHistory(listChats());
-  }
+    fetchContextStatus();
+    fetch('/api/settings')
+      .then((r) => r.json())
+      .then((data) => setSettingsStatus(data.settings))
+      .catch(() => {});
+  }, []);
 
   async function fetchContextStatus() {
     try {
@@ -736,123 +166,6 @@ export default function App() {
     setPrdFileName(null);
     setPendingPrd(null);
     setChatFigmaLinks([]);
-  }
-
-  async function handleLoadObjective() {
-    const id = parseObjectiveId(objectiveInput);
-    if (!id) {
-      setObjectiveError('Enter a valid Shortcut objective ID or URL');
-      return;
-    }
-
-    setLoadingObjective(true);
-    setObjectiveError(null);
-
-    try {
-      const res = await fetch(`/api/objective/${id}`);
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to load objective');
-      setActiveObjective(data);
-      setObjectiveInput('');
-    } catch (err) {
-      setObjectiveError(err.message);
-    } finally {
-      setLoadingObjective(false);
-    }
-  }
-
-  async function handleLoadRepo(owner, repo) {
-    if (activeRepos.some((r) => r.owner === owner && r.repo === repo)) return;
-    setLoadingRepo(true);
-    setRepoError(null);
-    setRepoPickerOpen(false);
-    try {
-      const res = await fetch(`/api/repo/${owner}/${repo}`);
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to load repo');
-      setActiveRepos((prev) => [...prev, data]);
-    } catch (err) {
-      setRepoError(err.message);
-    } finally {
-      setLoadingRepo(false);
-    }
-  }
-
-  async function openRepoPicker() {
-    setRepoPickerOpen(true);
-    setRepoPickerSearch('');
-    if (repoPickerList !== null) return;
-    setRepoPickerLoading(true);
-    setRepoPickerError(null);
-    try {
-      const res = await fetch('/api/repos');
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed');
-      setRepoPickerList(data.repos);
-    } catch (err) {
-      setRepoPickerError(err.message);
-      setRepoPickerList([]);
-    } finally {
-      setRepoPickerLoading(false);
-    }
-  }
-
-  function handleAddFigmaLink() {
-    const parsed = parseFigmaInput(figmaInput);
-    if (!parsed) { setFigmaError('Paste a Figma URL with a node-id'); return; }
-    if (figmaLinks.some((l) => l.url === parsed.url)) { setFigmaError('Already added'); return; }
-    setFigmaLinks((prev) => [...prev, parsed]);
-    setFigmaInput('');
-    setFigmaError(null);
-  }
-
-  async function addTranscript(name, rawText) {
-    const id = Date.now();
-    setTranscripts((prev) => [...prev, { id, name, summary: null }]);
-    try {
-      const res = await fetch('/api/summarize-transcript', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ transcript: rawText }),
-      });
-      const data = await res.json();
-      setTranscripts((prev) =>
-        prev.map((t) => (t.id === id ? { ...t, summary: data.summary } : t))
-      );
-    } catch {
-      setTranscripts((prev) => prev.filter((t) => t.id !== id));
-    }
-  }
-
-  async function handleFileUpload(file) {
-    if (!file || !file.name.endsWith('.txt')) return;
-    const text = await file.text();
-    await addTranscript(file.name, text);
-  }
-
-  async function handlePasteLoad() {
-    if (!pasteText.trim()) return;
-    const name = `Pasted transcript ${transcripts.length + 1}`;
-    setPasteText('');
-    setShowPaste(false);
-    await addTranscript(name, pasteText);
-  }
-
-  async function handlePrdFileUpload(file) {
-    if (!file) return;
-    const text = await file.text();
-    setPrdText(text);
-    setPrdFileName(file.name);
-    setPrdExpanded(true);
-  }
-
-  function handleConvertPrd() {
-    if (!prdText.trim()) return;
-    const prompt = `Convert the following PRD into a complete objective using our objective template and writing style. Match the depth and structure of the reference objectives.\n\n---\n\n${prdText.trim()}`;
-    setPendingPrd(prompt);
-    setPrdText('');
-    setPrdFileName(null);
-    setPrdExpanded(false);
   }
 
   return (
@@ -937,28 +250,12 @@ export default function App() {
 
         {/* PRD */}
         <div>
-          <button
-            onClick={() => setPrdExpanded((v) => !v)}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: prdText ? 'var(--text-muted)' : 'var(--text-dim)',
-              fontSize: 11,
-              fontWeight: 600,
-              textTransform: 'uppercase',
-              letterSpacing: '0.08em',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6,
-              padding: 0,
-              width: '100%',
-              marginBottom: prdExpanded ? 8 : 0,
-            }}
-          >
-            <span style={{ color: 'var(--text-dim)' }}>{prdExpanded ? '▾' : '▸'}</span>
-            PRD
-            {prdText && (
+          <CollapsibleSection
+            title="PRD"
+            expanded={prdExpanded}
+            onToggle={() => setPrdExpanded((v) => !v)}
+            active={!!prdText}
+            badge={prdText && (
               <span
                 style={{
                   marginLeft: 'auto',
@@ -975,9 +272,7 @@ export default function App() {
                 loaded
               </span>
             )}
-          </button>
-
-          {prdExpanded && (
+          >
             <div>
               {/* Hidden file input */}
               <input
@@ -1164,7 +459,7 @@ export default function App() {
                 Convert to Objective →
               </button>
             </div>
-          )}
+          </CollapsibleSection>
         </div>
 
         {/* Active Objective */}
@@ -1236,28 +531,12 @@ export default function App() {
 
         {/* Meeting Transcripts */}
         <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: 16 }}>
-          <button
-            onClick={() => setTranscriptExpanded((v) => !v)}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: transcripts.length > 0 ? 'var(--text-muted)' : 'var(--text-dim)',
-              fontSize: 11,
-              fontWeight: 600,
-              textTransform: 'uppercase',
-              letterSpacing: '0.08em',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6,
-              padding: 0,
-              width: '100%',
-              marginBottom: transcriptExpanded ? 8 : 0,
-            }}
-          >
-            <span style={{ color: 'var(--text-dim)' }}>{transcriptExpanded ? '▾' : '▸'}</span>
-            Meeting Transcripts
-            {transcripts.length > 0 && (
+          <CollapsibleSection
+            title="Meeting Transcripts"
+            expanded={transcriptExpanded}
+            onToggle={() => setTranscriptExpanded((v) => !v)}
+            active={transcripts.length > 0}
+            badge={transcripts.length > 0 && (
               <span
                 style={{
                   marginLeft: 'auto',
@@ -1274,9 +553,7 @@ export default function App() {
                 {transcripts.length} loaded
               </span>
             )}
-          </button>
-
-          {transcriptExpanded && (
+          >
             <div>
               {/* Hidden file input */}
               <input
@@ -1451,33 +728,17 @@ export default function App() {
                 Summarized by Haiku — raw text never goes to Opus.
               </p>
             </div>
-          )}
+          </CollapsibleSection>
         </div>
 
         {/* Figma Links */}
         <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: 16 }}>
-          <button
-            onClick={() => setFigmaExpanded((v) => !v)}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: figmaLinks.length > 0 ? 'var(--text-muted)' : 'var(--text-dim)',
-              fontSize: 11,
-              fontWeight: 600,
-              textTransform: 'uppercase',
-              letterSpacing: '0.08em',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6,
-              padding: 0,
-              width: '100%',
-              marginBottom: figmaExpanded ? 8 : 0,
-            }}
-          >
-            <span style={{ color: 'var(--text-dim)' }}>{figmaExpanded ? '▾' : '▸'}</span>
-            Figma
-            {figmaLinks.length > 0 && (
+          <CollapsibleSection
+            title="Figma"
+            expanded={figmaExpanded}
+            onToggle={() => setFigmaExpanded((v) => !v)}
+            active={figmaLinks.length > 0}
+            badge={figmaLinks.length > 0 && (
               <span
                 style={{
                   marginLeft: 'auto',
@@ -1494,9 +755,7 @@ export default function App() {
                 {figmaLinks.length} loaded
               </span>
             )}
-          </button>
-
-          {figmaExpanded && (
+          >
             <div>
               {figmaLinks.length > 0 && (
                 <div style={{ marginBottom: 8 }}>
@@ -1573,33 +832,17 @@ export default function App() {
                 </div>
               )}
             </div>
-          )}
+          </CollapsibleSection>
         </div>
 
         {/* GitHub Repos */}
         <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: 16 }}>
-          <button
-            onClick={() => setRepoExpanded((v) => !v)}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: activeRepos.length > 0 ? 'var(--text-muted)' : 'var(--text-dim)',
-              fontSize: 11,
-              fontWeight: 600,
-              textTransform: 'uppercase',
-              letterSpacing: '0.08em',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6,
-              padding: 0,
-              width: '100%',
-              marginBottom: repoExpanded ? 8 : 0,
-            }}
-          >
-            <span style={{ color: 'var(--text-dim)' }}>{repoExpanded ? '▾' : '▸'}</span>
-            GitHub Repos
-            {activeRepos.length > 0 && (
+          <CollapsibleSection
+            title="GitHub Repos"
+            expanded={repoExpanded}
+            onToggle={() => setRepoExpanded((v) => !v)}
+            active={activeRepos.length > 0}
+            badge={activeRepos.length > 0 && (
               <span
                 style={{
                   marginLeft: 'auto',
@@ -1616,9 +859,7 @@ export default function App() {
                 {activeRepos.length} loaded
               </span>
             )}
-          </button>
-
-          {repoExpanded && (
+          >
             <div>
               {activeRepos.length > 0 && (
                 <div style={{ marginBottom: 8 }}>
@@ -1680,7 +921,7 @@ export default function App() {
                 </div>
               )}
             </div>
-          )}
+          </CollapsibleSection>
         </div>
 
         {/* Reference Library */}

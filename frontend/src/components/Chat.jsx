@@ -1,20 +1,9 @@
 import { useState, useRef, useEffect } from 'react';
 import Message from './Message.jsx';
+import { extractFigmaUrls } from '../lib/figmaUtils.js';
 
 const CONTEXT_EPIC_RE = /<!--\s*context:epic\s+id:(\d+)\s*-->/;
 const CONTEXT_OBJECTIVE_RE = /<!--\s*context:objective\s+id:(\d+)\s*-->/;
-const FIGMA_URL_RE = /https:\/\/www\.figma\.com\/(file|design)\/([a-zA-Z0-9]+)\/[^?\s]*\?[^#\s]*node-id=([^&\s#]+)/g;
-
-function extractFigmaUrls(text) {
-  if (!text) return [];
-  FIGMA_URL_RE.lastIndex = 0;
-  const urls = [];
-  let match;
-  while ((match = FIGMA_URL_RE.exec(text)) !== null) {
-    urls.push(match[0]);
-  }
-  return urls;
-}
 
 function getQuickStarters(activeObjective, transcriptSummary, activeRepos) {
   const hasMilestones = activeObjective?.key_results?.length > 0;

@@ -1,20 +1,7 @@
 import { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-
-const DRAFT_TYPES = {
-  'draft:story': 'Story',
-  'draft:epic': 'Epic',
-  'draft:objective': 'Objective',
-  'draft:prd': 'PRD',
-  'draft:milestone': 'Milestone',
-};
-
-const SHORTCUT_ENDPOINTS = {
-  'draft:story': '/api/create/story',
-  'draft:epic': '/api/create/epic',
-  'draft:milestone': '/api/create/milestone',
-};
+import { DRAFT_TYPES, DRAFT_TYPE_COLORS, SHORTCUT_ENDPOINTS } from '../lib/draftConstants.js';
 
 function extractTitle(content) {
   const headingMatch = content.match(/^#+\s+(.+)$/m);
@@ -137,14 +124,7 @@ export default function DraftCard({ draftType, attrs, content, activeObjective, 
     downloadMarkdown(`${slug}.md`, cleanContent);
   }
 
-  const typeColors = {
-    'draft:story': 'var(--blue)',
-    'draft:epic': 'var(--amber)',
-    'draft:objective': 'var(--accent)',
-    'draft:prd': '#a78bfa',
-    'draft:milestone': '#2dd4bf',
-  };
-  const typeColor = typeColors[draftType] || 'var(--text-muted)';
+  const typeColor = DRAFT_TYPE_COLORS[draftType] || 'var(--text-muted)';
 
   return (
     <div

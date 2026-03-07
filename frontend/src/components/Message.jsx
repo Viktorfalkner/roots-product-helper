@@ -1,8 +1,7 @@
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import DraftCard from './DraftCard.jsx';
-
-const DRAFT_MARKERS = ['<!-- draft:story -->', '<!-- draft:epic -->', '<!-- draft:objective -->', '<!-- draft:prd -->', '<!-- draft:milestone -->'];
+import { DRAFT_MARKERS } from '../lib/draftConstants.js';
 
 function getDraftType(content) {
   for (const marker of DRAFT_MARKERS) {
