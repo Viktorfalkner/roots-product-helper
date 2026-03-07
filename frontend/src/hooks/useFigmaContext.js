@@ -16,11 +16,18 @@ export function useFigmaContext() {
     setFigmaError(null);
   }
 
+  function reset() {
+    setFigmaLinks([]);
+    setFigmaInput('');
+    setFigmaError(null);
+  }
+
   return {
     figmaLinks, setFigmaLinks,
     figmaInput, setFigmaInput,
     figmaExpanded, setFigmaExpanded,
     figmaError, setFigmaError,
     handleAddFigmaLink,
+    reset,
   };
 }

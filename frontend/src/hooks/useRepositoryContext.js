@@ -62,6 +62,10 @@ export function useRepositoryContext() {
     }
   }
 
+  function reset() {
+    setActiveRepos([]);
+  }
+
   return {
     activeRepos, setActiveRepos,
     repoExpanded, setRepoExpanded,
@@ -75,5 +79,6 @@ export function useRepositoryContext() {
     handleLoadRepo,
     openRepoPicker,
     toggleStarRepo,
+    reset,
   };
 }

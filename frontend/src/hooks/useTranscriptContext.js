@@ -46,6 +46,12 @@ export function useTranscriptContext() {
     await addTranscript(name, pasteText);
   }
 
+  function reset() {
+    setTranscripts([]);
+    setShowPaste(false);
+    setPasteText('');
+  }
+
   return {
     transcripts, setTranscripts,
     transcriptExpanded, setTranscriptExpanded,
@@ -56,5 +62,6 @@ export function useTranscriptContext() {
     addTranscript,
     handleFileUpload,
     handlePasteLoad,
+    reset,
   };
 }

@@ -49,6 +49,14 @@ export function useObjectiveContext() {
     }
   }
 
+  function reset() {
+    setObjectiveInput('');
+    setActiveObjective(null);
+    setActiveEpic(null);
+    setActiveStory(null);
+    setObjectiveError(null);
+  }
+
   return {
     objectiveInput, setObjectiveInput,
     activeObjective, setActiveObjective,
@@ -57,5 +65,6 @@ export function useObjectiveContext() {
     activeEpic, setActiveEpic,
     activeStory, setActiveStory,
     handleLoadObjective,
+    reset,
   };
 }

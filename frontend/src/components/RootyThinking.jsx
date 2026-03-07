@@ -67,6 +67,8 @@ export default function RootyThinking({ loading, onDone }) {
         style={{
           position: 'relative',
           width: BUBBLE_W,
+          background: 'white',
+          borderRadius: 14,
           animation: 'bubbleFadeIn 0.3s ease 0.2s both',
         }}
       >
@@ -83,10 +85,10 @@ export default function RootyThinking({ loading, onDone }) {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            fontSize: 11,
-            color: '#555',
+            fontSize: 13,
+            color: '#1a1a1a',
             fontFamily: "'Poppins', system-ui, sans-serif",
-            fontWeight: 500,
+            fontWeight: 600,
             padding: '0 14px',
             whiteSpace: 'nowrap',
             animation: phase === 'thinking' ? 'messageFade 2.5s ease' : 'bubbleFadeIn 0.2s ease both',

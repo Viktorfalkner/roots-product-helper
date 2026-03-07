@@ -39,6 +39,7 @@ export default function App() {
     activeEpic, setActiveEpic,
     activeStory, setActiveStory,
     handleLoadObjective,
+    reset: resetObjective,
   } = useObjectiveContext();
 
   const {
@@ -50,6 +51,7 @@ export default function App() {
     repoPickerSearch, setRepoPickerSearch,
     starredRepos,
     handleLoadRepo, openRepoPicker, toggleStarRepo,
+    reset: resetRepos,
   } = useRepositoryContext();
 
   const {
@@ -60,6 +62,7 @@ export default function App() {
     fileInputRef,
     transcriptSummary,
     handleFileUpload, handlePasteLoad,
+    reset: resetTranscript,
   } = useTranscriptContext();
 
   const {
@@ -70,6 +73,7 @@ export default function App() {
     prdPasteInput, setPrdPasteInput,
     prdFileInputRef,
     handlePrdFileUpload, handleConvertPrd,
+    reset: resetPrd,
   } = usePrdContext();
 
   const {
@@ -78,6 +82,7 @@ export default function App() {
     figmaExpanded, setFigmaExpanded,
     figmaError, setFigmaError,
     handleAddFigmaLink,
+    reset: resetFigma,
   } = useFigmaContext();
 
   function buildChatContext() {
@@ -109,6 +114,7 @@ export default function App() {
       setMessages([]);
       setModel('claude-opus-4-6');
       setChatFigmaLinks([]);
+      resetPrd();
     },
     onRestoreChat: (chat) => {
       setMessages(chat.messages || []);
@@ -168,17 +174,11 @@ export default function App() {
   }
 
   function handleClearContext() {
-    setObjectiveInput('');
-    setActiveObjective(null);
-    setActiveEpic(null);
-    setActiveStory(null);
-    setActiveRepos([]);
-    setFigmaLinks([]);
-    setFigmaInput('');
-    setTranscripts([]);
-    setPrdText('');
-    setPrdFileName(null);
-    setPendingPrd(null);
+    resetObjective();
+    resetTranscript();
+    resetPrd();
+    resetFigma();
+    resetRepos();
     setChatFigmaLinks([]);
   }
 
@@ -202,23 +202,7 @@ export default function App() {
         {/* Logo + New Session */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div
-              style={{
-                width: 28,
-                height: 28,
-                borderRadius: 6,
-                background: 'var(--accent-bg)',
-                border: '1px solid var(--accent)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: 13,
-                fontWeight: 700,
-                color: 'var(--accent)',
-              }}
-            >
-              R
-            </div>
+            <img src="/rooty.svg" alt="Rooty" style={{ width: 28, height: 28, borderRadius: 6 }} />
             <div>
               <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>
                 Product Helper

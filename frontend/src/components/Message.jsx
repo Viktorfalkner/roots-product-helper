@@ -86,26 +86,7 @@ export default function Message({ role, content, images, activeObjective, active
       }}
     >
       {!isUser && (
-        <div
-          style={{
-            width: 28,
-            height: 28,
-            borderRadius: '50%',
-            background: 'var(--accent-bg)',
-            border: '1px solid var(--accent)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: 12,
-            color: 'var(--accent)',
-            fontWeight: 600,
-            flexShrink: 0,
-            marginRight: 10,
-            marginTop: 2,
-          }}
-        >
-          R
-        </div>
+        <img src="/rooty.svg" alt="Rooty" style={{ width: 28, height: 28, borderRadius: '50%', flexShrink: 0, marginRight: 10, marginTop: 2 }} />
       )}
 
       <div style={{ maxWidth: '80%', minWidth: 0 }}>

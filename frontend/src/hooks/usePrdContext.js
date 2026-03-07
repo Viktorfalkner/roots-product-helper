@@ -22,6 +22,13 @@ export function usePrdContext() {
     setPrdExpanded(false);
   }
 
+  function reset() {
+    setPrdText('');
+    setPrdFileName(null);
+    setPendingPrd(null);
+    setPrdPasteInput('');
+  }
+
   return {
     prdText, setPrdText,
     prdFileName, setPrdFileName,
@@ -31,5 +38,6 @@ export function usePrdContext() {
     prdFileInputRef,
     handlePrdFileUpload,
     handleConvertPrd,
+    reset,
   };
 }
