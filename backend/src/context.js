@@ -117,12 +117,16 @@ ${transcriptSummary}`);
         if (r.description) lines.push(r.description);
         if (r.readme) lines.push(`\nREADME (excerpt):\n${r.readme}`);
         if (r.open_prs.length > 0) {
-          lines.push(`\nOpen PRs (${r.open_prs.length}):`);
-          r.open_prs.forEach((pr) => lines.push(`- #${pr.number}: ${pr.title} (@${pr.user})`));
+          const prs = r.open_prs.slice(0, 10);
+          const prLabel = r.open_prs.length > 10 ? `Open PRs (${prs.length} of ${r.open_prs.length})` : `Open PRs (${r.open_prs.length})`;
+          lines.push(`\n${prLabel}:`);
+          prs.forEach((pr) => lines.push(`- #${pr.number}: ${pr.title} (@${pr.user})`));
         }
         if (r.open_issues.length > 0) {
-          lines.push(`\nOpen Issues (${r.open_issues.length}):`);
-          r.open_issues.forEach((i) => lines.push(`- #${i.number}: ${i.title}`));
+          const issues = r.open_issues.slice(0, 10);
+          const issueLabel = r.open_issues.length > 10 ? `Open Issues (${issues.length} of ${r.open_issues.length})` : `Open Issues (${r.open_issues.length})`;
+          lines.push(`\n${issueLabel}:`);
+          issues.forEach((i) => lines.push(`- #${i.number}: ${i.title}`));
         }
         return lines.join('\n');
       })

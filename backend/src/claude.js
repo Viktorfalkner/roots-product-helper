@@ -28,14 +28,19 @@ function buildApiPayload(messages, activeObjective, transcriptSummary, activeRep
   ];
 
   if (dynamicContext) {
-    systemBlocks.push({ type: 'text', text: dynamicContext });
+    // Cache the dynamic context too — if the active objective/epic/repos haven't
+    // changed between turns (the common case), this block is identical and hits cache.
+    systemBlocks.push({ type: 'text', text: dynamicContext, cache_control: { type: 'ephemeral' } });
   }
 
-  // If Figma content is present, transform the last user message into a
-  // multimodal content array: node context text first, then images, then user text.
-  let finalMessages = messages;
+  // Cap message history at 40 messages (20 turns) to prevent unbounded token growth.
+  // Users can always restore older context from chat history if needed.
+  const MAX_MESSAGES = 40;
+  let finalMessages = messages.length > MAX_MESSAGES
+    ? messages.slice(messages.length - MAX_MESSAGES)
+    : [...messages];
   if ((figmaImages && figmaImages.length > 0) || (figmaContexts && figmaContexts.length > 0)) {
-    finalMessages = [...messages];
+    finalMessages = [...finalMessages];
     const last = finalMessages[finalMessages.length - 1];
     if (last && last.role === 'user') {
       const textContent = typeof last.content === 'string' ? last.content : JSON.stringify(last.content);
@@ -67,6 +72,19 @@ function buildApiPayload(messages, activeObjective, transcriptSummary, activeRep
 
       finalMessages[finalMessages.length - 1] = { ...last, content: contentBlocks };
     }
+  }
+
+  // Cache message history up to the third-from-last message.
+  // The last 2 turns stay uncached (always fresh). Everything before that is
+  // identical on the next request and hits cache — the biggest saving in long sessions.
+  if (finalMessages.length >= 4) {
+    const idx = finalMessages.length - 3;
+    const msg = finalMessages[idx];
+    const blocks = typeof msg.content === 'string'
+      ? [{ type: 'text', text: msg.content }]
+      : [...msg.content];
+    blocks[blocks.length - 1] = { ...blocks[blocks.length - 1], cache_control: { type: 'ephemeral' } };
+    finalMessages = finalMessages.map((m, i) => i === idx ? { ...m, content: blocks } : m);
   }
 
   return { systemBlocks, finalMessages };
