@@ -120,6 +120,9 @@ export default function Chat({ activeObjective, transcriptSummary, activeRepos, 
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, loading]);
 
+  // Abort any in-flight stream when this Chat instance unmounts (e.g. New Chat)
+  useEffect(() => () => abortRef.current?.abort(), []);
+
   // Double-ESC to abort in-progress request
   useEffect(() => {
     function onKeyDown(e) {

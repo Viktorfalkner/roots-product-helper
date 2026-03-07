@@ -114,7 +114,7 @@ export default function App() {
       setMessages([]);
       setModel('claude-opus-4-6');
       setChatFigmaLinks([]);
-      resetPrd();
+      setPendingPrd(null);
     },
     onRestoreChat: (chat) => {
       setMessages(chat.messages || []);
