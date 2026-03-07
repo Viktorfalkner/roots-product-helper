@@ -13,7 +13,7 @@ const FIELDS = [
   {
     key: 'SHORTCUT_API_TOKEN',
     label: 'Shortcut API Token',
-    required: false,
+    required: true,
     description: 'Enables creating and reading stories, epics, and objectives in Shortcut.',
     permissions: 'Any API token from Shortcut — full workspace access.',
     href: 'https://app.shortcut.com/settings/api-tokens',
