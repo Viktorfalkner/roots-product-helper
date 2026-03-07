@@ -156,6 +156,17 @@ export default function App() {
     }
   }
 
+  async function handleObjectiveCreated(objective) {
+    setActiveObjective(objective); // optimistic
+    try {
+      const res = await fetch(`/api/objective/${objective.id}`);
+      const data = await res.json();
+      if (res.ok) setActiveObjective(data); // replace with enriched object (epics, key results, etc.)
+    } catch {
+      // optimistic value stays
+    }
+  }
+
   function handleClearContext() {
     setObjectiveInput('');
     setActiveObjective(null);
@@ -924,6 +935,7 @@ export default function App() {
           onEpicCreated={setActiveEpic}
           onStoryCreated={setActiveStory}
           onObjectiveLoaded={setActiveObjective}
+          onObjectiveCreated={handleObjectiveCreated}
           messages={messages}
           setMessages={setMessages}
           model={model}

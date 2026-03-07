@@ -30,7 +30,7 @@ function downloadMarkdown(filename, content) {
   URL.revokeObjectURL(url);
 }
 
-export default function DraftCard({ draftType, attrs, content, activeObjective, activeEpic, onSendMessage, onEpicCreated, onStoryCreated, figmaLinks }) {
+export default function DraftCard({ draftType, attrs, content, activeObjective, activeEpic, onSendMessage, onEpicCreated, onStoryCreated, onObjectiveCreated, figmaLinks }) {
   const [creating, setCreating] = useState(false);
   const [created, setCreated] = useState(null);
   const [error, setError] = useState(null);
@@ -46,6 +46,8 @@ export default function DraftCard({ draftType, attrs, content, activeObjective, 
 
   // When an epic is already active and Claude drafts an epic, offer to update it instead of creating a new one
   const isEpicUpdate = draftType === 'draft:epic' && !!activeEpic;
+  // When an objective is already active and Claude drafts an objective, offer to update it
+  const isObjectiveUpdate = draftType === 'draft:objective' && !!activeObjective;
 
   async function handleCreate() {
     setCreating(true);
@@ -58,6 +60,9 @@ export default function DraftCard({ draftType, attrs, content, activeObjective, 
       if (isEpicUpdate) {
         endpoint = '/api/update/epic';
         payload = { id: activeEpic.id, description: stripTitleHeading(cleanContent, title) };
+      } else if (isObjectiveUpdate) {
+        endpoint = '/api/update/objective';
+        payload = { id: activeObjective.id, description: stripTitleHeading(cleanContent, title) };
       } else {
         endpoint = SHORTCUT_ENDPOINTS[draftType];
         payload = { name: title, description: stripTitleHeading(cleanContent, title) };
@@ -99,6 +104,9 @@ export default function DraftCard({ draftType, attrs, content, activeObjective, 
       }
       if (draftType === 'draft:story' && data.story) {
         onStoryCreated?.(data.story);
+      }
+      if (draftType === 'draft:objective' && !isObjectiveUpdate && data.objective) {
+        onObjectiveCreated?.(data.objective);
       }
     } catch (err) {
       setError(err.message);
@@ -193,12 +201,14 @@ export default function DraftCard({ draftType, attrs, content, activeObjective, 
 {hasShortcutCreate && !created && (
             <button onClick={handleCreate} disabled={creating} style={primaryBtn(typeColor)}>
               {creating
-                ? (isEpicUpdate ? 'Updating...' : 'Creating...')
+                ? (isEpicUpdate || isObjectiveUpdate ? 'Updating...' : 'Creating...')
                 : isEpicUpdate
                   ? `Update Epic ${activeEpic.id}`
-                  : draftType === 'draft:milestone'
-                    ? 'Add to Objective'
-                    : 'Create in Shortcut'}
+                  : isObjectiveUpdate
+                    ? 'Update in Shortcut'
+                    : draftType === 'draft:milestone'
+                      ? 'Add to Objective'
+                      : 'Create in Shortcut'}
             </button>
           )}
 
@@ -206,9 +216,21 @@ export default function DraftCard({ draftType, attrs, content, activeObjective, 
             <span style={{ fontSize: 12, color: 'var(--accent)', display: 'flex', alignItems: 'center', gap: 4 }}>
               {isEpicUpdate
                 ? `✓ Updated Epic ${activeEpic.id}`
-                : created.id
-                  ? `✓ Created (ID: ${created.id})`
-                  : '✓ Added to Objective'}
+                : isObjectiveUpdate
+                  ? `✓ Updated Objective ${activeObjective.id}`
+                  : created.id
+                    ? `✓ Created (ID: ${created.id})`
+                    : '✓ Added to Objective'}
+              {created.app_url && (
+                <a
+                  href={created.app_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{ fontSize: 11, color: 'var(--accent)', marginLeft: 6 }}
+                >
+                  Open in Shortcut ↗
+                </a>
+              )}
             </span>
           )}
         </div>

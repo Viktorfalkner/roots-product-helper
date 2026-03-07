@@ -71,7 +71,7 @@ function parseMessageContent(content) {
   return parts;
 }
 
-export default function Message({ role, content, images, activeObjective, activeEpic, onSendMessage, onEpicCreated, onStoryCreated, figmaLinks }) {
+export default function Message({ role, content, images, activeObjective, activeEpic, onSendMessage, onEpicCreated, onStoryCreated, onObjectiveCreated, figmaLinks }) {
   const isUser = role === 'user';
 
   const parts = isUser ? [{ type: 'text', content }] : parseMessageContent(content);
@@ -122,6 +122,7 @@ export default function Message({ role, content, images, activeObjective, active
                 onSendMessage={onSendMessage}
                 onEpicCreated={onEpicCreated}
                 onStoryCreated={onStoryCreated}
+                onObjectiveCreated={onObjectiveCreated}
                 figmaLinks={figmaLinks}
               />
             );

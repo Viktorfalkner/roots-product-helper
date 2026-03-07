@@ -102,6 +102,30 @@ ${list}`);
 export function buildDynamicContext(activeObjective = null, transcriptSummary = null, activeRepos = [], activeEpic = null, prdText = null) {
   const sections = [];
 
+  // Current date + fiscal quarter (staggered calendar: Q1=Feb-Apr, Q2=May-Jul, Q3=Aug-Oct, Q4=Nov-Jan)
+  const now = new Date();
+  const month = now.getMonth(); // 0-indexed
+  const calYear = now.getFullYear();
+  let quarter, fiscalYear;
+  if (month === 0)       { quarter = 'Q4'; fiscalYear = calYear - 1; } // Jan → Q4 of prior fiscal year
+  else if (month <= 3)   { quarter = 'Q1'; fiscalYear = calYear; }     // Feb–Apr
+  else if (month <= 6)   { quarter = 'Q2'; fiscalYear = calYear; }     // May–Jul
+  else if (month <= 9)   { quarter = 'Q3'; fiscalYear = calYear; }     // Aug–Oct
+  else                   { quarter = 'Q4'; fiscalYear = calYear; }     // Nov–Dec
+  const fiscalQuarter = `${quarter}/${String(fiscalYear).slice(2)}`;
+  const dateStr = now.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+
+  sections.push(`## Current Date & Fiscal Calendar
+Today is ${dateStr} (${fiscalQuarter}).
+
+This company uses a staggered fiscal calendar:
+- Q1: February – April
+- Q2: May – July
+- Q3: August – October
+- Q4: November – January
+
+Always use the correct fiscal quarter when naming objectives (e.g. "[Q1/26] - Objective Name").`);
+
   if (prdText) {
     sections.push(`## Loaded PRD
 

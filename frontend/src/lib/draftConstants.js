@@ -25,5 +25,6 @@ export const DRAFT_TYPE_COLORS = {
 export const SHORTCUT_ENDPOINTS = {
   'draft:story': '/api/create/story',
   'draft:epic': '/api/create/epic',
+  'draft:objective': '/api/create/objective',
   'draft:milestone': '/api/create/milestone',
 };

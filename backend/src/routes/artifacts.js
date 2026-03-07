@@ -96,4 +96,17 @@ router.post('/api/create/objective', async (req, res) => {
   }
 });
 
+router.post('/api/update/objective', async (req, res) => {
+  const { id, description } = req.body;
+  if (!id) return res.status(400).json({ error: '`id` is required' });
+
+  try {
+    const objective = await updateObjective(id, { description: description || '' });
+    res.json({ ok: true, objective });
+  } catch (err) {
+    console.error('Update objective error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 export default router;
